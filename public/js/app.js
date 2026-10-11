@@ -2291,8 +2291,13 @@ async function submitVerifyOtp() {
 }
 
 async function submitSuperAdminLogin() {
-  const phoneOrEmail = document.getElementById('adminPhoneInput')?.value.trim() || 'carrromx@gmail.com';
-  const key = document.getElementById('adminKeyInput')?.value.trim() || 'Ramanan@03';
+  const phoneOrEmail = document.getElementById('adminPhoneInput')?.value.trim();
+  const key = document.getElementById('adminKeyInput')?.value.trim();
+
+  if (!phoneOrEmail || !key) {
+    alert('Please enter your administrator email/phone and master password');
+    return;
+  }
 
   try {
     // Try direct credentials login first
@@ -4262,6 +4267,37 @@ async function executeGenerateFixtures() {
   }
 }
 
+async function triggerAdvanceBracket() {
+  const sel = document.getElementById('organizerTournamentSelect');
+  const tourId = sel?.value || currentTournamentId;
+  if (!tourId) {
+    alert('Please select a tournament first.');
+    return;
+  }
+
+  try {
+    await ensureOrganizerAuthToken();
+    const res = await fetch(`/api/tournaments/${tourId}/fixtures/advance`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${currentToken}`
+      }
+    });
+
+    const data = await res.json();
+    if (res.ok) {
+      playQueenSound();
+      showToastNotification(`🏆 Next Round Bracket created! ${data.result?.newFixtures || 0} new matches generated.`);
+      await loadOrganizerTournamentData();
+    } else {
+      alert(data.error || 'Failed to advance bracket');
+    }
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
 // =============================================================
 // OFFICIAL CARROM SCORE SHEET & MOBILE QUICK-TOUCH ENGINE
 // Exact reproduction of Official Chennai / Tamil Nadu / AICF Paper Format
@@ -4473,26 +4509,55 @@ function renderOfficialScoreSheet(fixture, sheet, canEdit) {
   let gamesHtml = (sheet.games || []).map((game, gIdx) => {
     const bannerClass = gIdx === 0 ? 'game-banner-1' : gIdx === 1 ? 'game-banner-2' : 'game-banner-3';
     
+    const setTargetPoints = fixture.max_points_per_set || 25;
+    const setTimeLimit = fixture.set_time_limit_minutes || 25;
+
     return `
-      <div class="mb-6 border border-slate-700/80 rounded-xl overflow-hidden shadow-sm">
+      <div id="gameSetCard_${gIdx}" class="mb-6 border border-slate-700/80 rounded-xl overflow-hidden shadow-sm transition-all duration-300">
         
         <!-- Game Sub-Header -->
         <div class="${bannerClass} px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs font-bold border-b border-slate-700">
           <div class="flex items-center gap-2">
-            <span class="text-sm font-black uppercase">GAME NO: ${game.gameNo}</span>
-            <span class="text-[11px] font-normal opacity-80">(Standard 6 Boards + Tie-Break + Sudden Death)</span>
+            <span class="text-sm font-black uppercase">SET / GAME NO: ${game.gameNo}</span>
+            <span class="text-[11px] font-normal opacity-80">(Target: ${setTargetPoints} pts &bull; 6 Boards + Tie-Break)</span>
           </div>
           <div class="flex items-center gap-4 text-xs font-semibold">
             <div class="flex items-center gap-1.5">
-              <span>Starting Time:</span>
+              <span>Start:</span>
               <input type="time" value="${game.startTime || ''}" ${disabledAttr} onchange="onSheetTimeChange(${gIdx}, 'startTime', this.value)" class="sheet-input w-24 bg-white/30 dark:bg-black/30 rounded px-1.5 py-0.5 text-xs font-bold">
             </div>
             <div class="flex items-center gap-1.5">
-              <span>Finishing Time:</span>
+              <span>Finish:</span>
               <input type="time" value="${game.finishTime || ''}" ${disabledAttr} onchange="onSheetTimeChange(${gIdx}, 'finishTime', this.value)" class="sheet-input w-24 bg-white/30 dark:bg-black/30 rounded px-1.5 py-0.5 text-xs font-bold">
             </div>
           </div>
         </div>
+
+        <!-- Dynamic Set Winner & Move to Next Set Banner -->
+        ${game.wonBy ? `
+          <div class="px-3 py-2 bg-gradient-to-r from-emerald-950 via-teal-950 to-emerald-950 border-b border-emerald-500/40 flex items-center justify-between text-xs">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+              <span class="font-extrabold text-emerald-300">
+                🎉 Set ${game.gameNo} Won by: <strong class="text-white font-black underline">${game.wonBy === 'player_1' ? escapeHtml(p1Name) : escapeHtml(p2Name)}</strong> (Points: ${game.points})
+              </span>
+            </div>
+            ${gIdx < 2 && !sheet.result?.matchWonBy ? `
+              <button onclick="scrollToGameSet(${gIdx + 1})" class="px-3 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black shadow-md flex items-center gap-1.5 transition transform active:scale-95">
+                <span>Move to Set ${gIdx + 2}</span>
+                <i class="fa-solid fa-arrow-down"></i>
+              </button>
+            ` : ''}
+          </div>
+        ` : `
+          <div class="px-3 py-1.5 bg-slate-900/60 border-b border-slate-700/50 flex items-center justify-between text-[11px] text-slate-400">
+            <span class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+              <span>Set ${game.gameNo} in progress (Target: ${setTargetPoints} pts to win this set)</span>
+            </span>
+            <span class="font-mono text-amber-400 font-bold">${setTimeLimit} min countdown limit</span>
+          </div>
+        `}
 
         <!-- 8-Board Scores Table -->
         <div class="overflow-x-auto">
@@ -4778,6 +4843,18 @@ function recalculateSheetTotals() {
   } else if (p2GamesWon >= 2) {
     currentScoreSheetData.result.matchWonBy = 'player_2';
     currentScoreSheetData.result.winnerName = currentScoreSheetFixture?.p2_name || currentScoreSheetFixture?.player_2_name || 'Player 2';
+  } else {
+    currentScoreSheetData.result.matchWonBy = '';
+    currentScoreSheetData.result.winnerName = '';
+  }
+}
+
+function scrollToGameSet(gameIdx) {
+  const target = document.getElementById(`gameSetCard_${gameIdx}`);
+  if (target) {
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target.classList.add('ring-4', 'ring-amber-500');
+    setTimeout(() => target.classList.remove('ring-4', 'ring-amber-500'), 2500);
   }
 }
 

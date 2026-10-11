@@ -1,7 +1,7 @@
 import express from 'express';
 import { query } from '../db.js';
 import { authenticateToken, requireRoles, checkTournamentOwnership } from '../auth.js';
-import { generateFixtures } from '../fixtureEngine.js';
+import { generateFixtures, advanceKnockoutBracket } from '../fixtureEngine.js';
 import crypto from 'crypto';
 
 const router = express.Router();
@@ -419,6 +419,29 @@ router.post('/fixtures/:id/resolve-dispute', authenticateToken, requireRoles('he
   } catch (err) {
     console.error('Error resolving dispute:', err);
     res.status(500).json({ error: 'Failed to resolve dispute', details: err.message });
+  }
+});
+
+/**
+ * Advance Knockout Bracket (Organizer / Super Admin)
+ */
+router.post('/tournaments/:id/fixtures/advance', authenticateToken, async (req, res) => {
+  try {
+    const tournamentId = req.params.id;
+    const perm = await checkTournamentOwnership(tournamentId, req.user);
+    if (!perm.authorized) {
+      return res.status(403).json({ error: 'Unauthorized to advance bracket for this tournament.' });
+    }
+
+    const result = await advanceKnockoutBracket(tournamentId, query);
+    res.json({
+      success: true,
+      message: 'Bracket evaluated and winners advanced successfully!',
+      result
+    });
+  } catch (err) {
+    console.error('Error advancing bracket:', err);
+    res.status(500).json({ error: 'Failed to advance bracket', details: err.message });
   }
 });
 

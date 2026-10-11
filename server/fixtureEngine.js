@@ -234,3 +234,152 @@ function generateRoundRobinRounds(participants) {
 
   return rounds;
 }
+
+/**
+ * Advance Knockout Bracket:
+ * Automatically advances winners from completed rounds into Quarter-Finals, Semi-Finals, and Finals.
+ */
+export async function advanceKnockoutBracket(tournamentId, dbQuery) {
+  try {
+    // 1. Get tournament details
+    const tRes = await dbQuery('SELECT * FROM tournaments WHERE tournament_id = $1', [tournamentId]);
+    if (tRes.rows.length === 0) return { advanced: false, reason: 'Tournament not found' };
+    const tournament = tRes.rows[0];
+
+    // 2. Get active boards for board allocation
+    const bRes = await dbQuery('SELECT * FROM boards WHERE tournament_id = $1 AND is_active = 1 ORDER BY board_number ASC', [tournamentId]);
+    const activeBoards = bRes.rows;
+
+    // 3. Get all fixtures ordered by round and start time
+    const fRes = await dbQuery(
+      'SELECT * FROM match_fixtures WHERE tournament_id = $1 ORDER BY round_number ASC, scheduled_start_time ASC, fixture_id ASC',
+      [tournamentId]
+    );
+    if (fRes.rows.length === 0) return { advanced: false, reason: 'No fixtures found' };
+
+    // Group by round_number
+    const roundMap = new Map();
+    for (const f of fRes.rows) {
+      if (!roundMap.has(f.round_number)) roundMap.set(f.round_number, []);
+      roundMap.get(f.round_number).push(f);
+    }
+
+    const rounds = Array.from(roundMap.keys()).sort((a, b) => a - b);
+    let totalNewCreated = 0;
+    let totalUpdated = 0;
+
+    for (let rIdx = 0; rIdx < rounds.length; rIdx++) {
+      const currentRound = rounds[rIdx];
+      const fixturesInRound = roundMap.get(currentRound);
+
+      // If only 1 match in this round and it's completed, tournament is finished!
+      if (fixturesInRound.length === 1) {
+        const finalMatch = fixturesInRound[0];
+        if (finalMatch.match_status === 'completed' && finalMatch.winner_participant_id) {
+          if (tournament.status !== 'completed') {
+            await dbQuery('UPDATE tournaments SET status = $1 WHERE tournament_id = $2', ['completed', tournamentId]);
+          }
+        }
+        continue;
+      }
+
+      // There are 2 or more matches in this round.
+      // Target next round: currentRound + 1
+      const nextRoundNumber = currentRound + 1;
+      let nextRoundFixtures = roundMap.get(nextRoundNumber) || [];
+      const expectedNextMatches = Math.ceil(fixturesInRound.length / 2);
+
+      if (nextRoundFixtures.length === 0) {
+        // Check if at least 1 match in current round is completed with a winner
+        const hasAnyCompleted = fixturesInRound.some(f => f.match_status === 'completed' && f.winner_participant_id);
+        if (!hasAnyCompleted) continue;
+
+        // Compute scheduled start time for next round: 45 min after last match in current round
+        const lastRoundTime = new Date(fixturesInRound[fixturesInRound.length - 1].scheduled_start_time).getTime();
+        const matchDuration = (tournament.match_duration_minutes || 45) * 60 * 1000;
+        const nextRoundBaseTime = lastRoundTime + matchDuration;
+
+        // Create expectedNextMatches in next round
+        for (let mIdx = 0; mIdx < expectedNextMatches; mIdx++) {
+          const fixId = 'fix_' + crypto.randomUUID().slice(0, 12);
+          const assignedBoard = activeBoards.length > 0 ? activeBoards[mIdx % activeBoards.length] : null;
+          const slotOffset = activeBoards.length > 0 ? Math.floor(mIdx / activeBoards.length) * matchDuration : 0;
+          const schedTime = new Date(nextRoundBaseTime + slotOffset).toISOString();
+
+          // Feeder matches: 2*mIdx and 2*mIdx + 1
+          const feeder1 = fixturesInRound[2 * mIdx];
+          const feeder2 = fixturesInRound[2 * mIdx + 1];
+
+          const p1Id = feeder1 && feeder1.match_status === 'completed' ? feeder1.winner_participant_id : null;
+          const p2Id = feeder2 && feeder2.match_status === 'completed' ? feeder2.winner_participant_id : null;
+
+          await dbQuery(
+            `INSERT INTO match_fixtures (
+              fixture_id, tournament_id, round_number, board_id,
+              player_1_id, player_2_id, scheduled_start_time, match_status,
+              winner_participant_id, set_time_limit_minutes, match_duration_minutes
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+            [
+              fixId,
+              tournamentId,
+              nextRoundNumber,
+              assignedBoard ? assignedBoard.board_id : null,
+              p1Id,
+              p2Id,
+              schedTime,
+              'scheduled',
+              null,
+              tournament.set_time_limit_minutes || 25,
+              tournament.match_duration_minutes || 45
+            ]
+          );
+          totalNewCreated++;
+        }
+
+        // Re-fetch next round fixtures so subsequent loop iterations see them
+        const refetchedNext = await dbQuery(
+          'SELECT * FROM match_fixtures WHERE tournament_id = $1 AND round_number = $2 ORDER BY scheduled_start_time ASC, fixture_id ASC',
+          [tournamentId, nextRoundNumber]
+        );
+        roundMap.set(nextRoundNumber, refetchedNext.rows);
+        if (!rounds.includes(nextRoundNumber)) rounds.push(nextRoundNumber);
+      } else {
+        // Next round fixtures already exist. Check if any new winner has emerged and slot them in!
+        for (let mIdx = 0; mIdx < nextRoundFixtures.length; mIdx++) {
+          const nextFix = nextRoundFixtures[mIdx];
+          const feeder1 = fixturesInRound[2 * mIdx];
+          const feeder2 = fixturesInRound[2 * mIdx + 1];
+
+          let needsUpdate = false;
+          let newP1 = nextFix.player_1_id;
+          let newP2 = nextFix.player_2_id;
+
+          if (!newP1 && feeder1 && feeder1.match_status === 'completed' && feeder1.winner_participant_id) {
+            newP1 = feeder1.winner_participant_id;
+            needsUpdate = true;
+          }
+
+          if (!newP2 && feeder2 && feeder2.match_status === 'completed' && feeder2.winner_participant_id) {
+            newP2 = feeder2.winner_participant_id;
+            needsUpdate = true;
+          }
+
+          if (needsUpdate) {
+            await dbQuery(
+              'UPDATE match_fixtures SET player_1_id = $1, player_2_id = $2 WHERE fixture_id = $3',
+              [newP1, newP2, nextFix.fixture_id]
+            );
+            nextFix.player_1_id = newP1;
+            nextFix.player_2_id = newP2;
+            totalUpdated++;
+          }
+        }
+      }
+    }
+
+    return { success: true, newFixtures: totalNewCreated, updatedFixtures: totalUpdated };
+  } catch (err) {
+    console.error('Error in advanceKnockoutBracket:', err);
+    return { success: false, error: err.message };
+  }
+}

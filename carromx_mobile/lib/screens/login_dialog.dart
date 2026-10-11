@@ -92,7 +92,7 @@ class _LoginDialogState extends State<LoginDialog> {
               spacing: 6,
               runSpacing: 6,
               children: [
-                _buildPersonaChip('Admin (carrromx)', 'super_admin', const Color(0xFFF59E0B)),
+                _buildPersonaChip('Admin', 'super_admin', const Color(0xFFF59E0B)),
                 _buildPersonaChip('Organizer', 'organizer', Colors.blueAccent),
                 _buildPersonaChip('Referee', 'referee', const Color(0xFF10B981)),
                 _buildPersonaChip('Player', 'player', const Color(0xFF6EE7B7)),

@@ -2,6 +2,7 @@ import express from 'express';
 import { query } from '../db.js';
 import { authenticateToken, requireRoles, checkTournamentOwnership, normalizeRole } from '../auth.js';
 import crypto from 'crypto';
+import { advanceKnockoutBracket } from '../fixtureEngine.js';
 
 const router = express.Router();
 
@@ -269,6 +270,12 @@ router.post('/fixtures/:id/lock-set', authenticateToken, async (req, res) => {
         "UPDATE match_fixtures SET match_status = 'completed', winner_participant_id = $1 WHERE fixture_id = $2",
         [matchWinner, fixtureId]
       );
+      // Auto-advance winners into next round (Quarters, Semis, Finals)
+      try {
+        await advanceKnockoutBracket(fixture.tournament_id, query);
+      } catch (advErr) {
+        console.warn('[KNOCKOUT-ADVANCE-NOTICE]', advErr.message);
+      }
     }
 
     const lockPayload = {
@@ -680,6 +687,15 @@ router.post('/fixtures/:id/score-sheet', authenticateToken, async (req, res) => 
 
     if (broadcastCallback) {
       broadcastCallback(broadcastData);
+    }
+
+    // Auto-advance winners into the next tournament round (Quarters, Semis, Finals)
+    if (finalStatus === 'completed' || matchWinnerParticipantId) {
+      try {
+        await advanceKnockoutBracket(fixture.tournament_id, query);
+      } catch (advErr) {
+        console.warn('[KNOCKOUT-ADVANCE-NOTICE]', advErr.message);
+      }
     }
 
     res.json({
