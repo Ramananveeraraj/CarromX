@@ -2368,18 +2368,16 @@ async function requestOtp() {
       if (targetPhoneEl) targetPhoneEl.innerText = `Mobile: ${data.targetPhone || cleanPhone}`;
 
       if (data.devOtp) {
-        const helperEl = document.getElementById('devOtpHelper');
         const codeEl = document.getElementById('devOtpCode');
-        const inputEl = document.getElementById('authOtpInput');
         if (codeEl) codeEl.innerText = data.devOtp;
-        if (helperEl) helperEl.classList.remove('hidden');
+        const inputEl = document.getElementById('authOtpInput');
         if (inputEl) {
-          inputEl.value = data.devOtp; // Auto-fill code into box immediately!
+          inputEl.value = ''; // Clean empty box for code from email
           inputEl.focus();
         }
       }
 
-      showToastNotification(data.message || 'Verification code sent to your email!');
+      showToastNotification(data.message || 'Verification code sent to your email inbox!');
     } else {
       alert(data.error || 'Failed to send verification code');
     }
@@ -2391,6 +2389,11 @@ async function requestOtp() {
       btn.innerHTML = '<span>Send Verification Code</span> <i class="fa-solid fa-arrow-right ml-1"></i>';
     }
   }
+}
+
+function revealBackupOtp() {
+  document.getElementById('devOtpHelper')?.classList.remove('hidden');
+  document.getElementById('btnRevealBackup')?.classList.add('hidden');
 }
 
 function autofillDevOtp() {
@@ -2418,7 +2421,7 @@ async function submitVerifyOtp() {
   const btn = document.getElementById('btnVerifyOtp');
 
   if (!otp) {
-    alert('Please enter the 6-digit verification code');
+    alert('Please enter the 6-digit verification code from your email');
     return;
   }
 
@@ -2475,37 +2478,35 @@ async function submitVerifyOtp() {
 }
 
 async function submitSuperAdminLogin() {
-  const phoneOrEmail = document.getElementById('adminPhoneInput')?.value.trim();
-  const key = document.getElementById('adminKeyInput')?.value.trim();
+  const phone = (document.getElementById('adminPhoneInput')?.value || '').trim();
+  const email = (document.getElementById('adminEmailInput')?.value || '').trim().toLowerCase();
+  const key = (document.getElementById('adminKeyInput')?.value || '').trim();
 
-  if (!phoneOrEmail || !key) {
-    alert('Please enter your administrator email/phone and master password');
+  if (!phone || phone.length < 8) {
+    alert('Please enter your administrator mobile phone number');
+    return;
+  }
+  if (!email || !email.includes('@')) {
+    alert('Please enter your administrator email address');
+    return;
+  }
+  if (!key) {
+    alert('Please enter your master password');
     return;
   }
 
+  const cleanPhone = phone.startsWith('+') ? phone : (phone.length === 10 ? `+91${phone}` : phone);
+
   try {
-    // Try direct credentials login first
-    let res = await fetch('/api/auth/login', {
+    const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        email: phoneOrEmail,
+        email,
+        phoneNumber: cleanPhone,
         password: key
       })
     });
-
-    // Fallback to OTP verification route if needed
-    if (!res.ok) {
-      res = await fetch('/api/auth/verify-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phoneNumber: phoneOrEmail,
-          otp: key,
-          desiredRole: 'super_admin'
-        })
-      });
-    }
 
     const data = await res.json();
     if (res.ok) {
@@ -2524,7 +2525,7 @@ async function submitSuperAdminLogin() {
     }
   } catch (err) {
     console.error('Super Admin login error:', err);
-    alert('Failed to connect to authentication server');
+    alert('Failed to connect to authentication server: ' + err.message);
   }
 }
 
