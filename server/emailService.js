@@ -12,15 +12,18 @@ let transporter = null;
 function getTransporter() {
   if (transporter) return transporter;
 
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
+  const user = process.env.SMTP_USER || 'carrromx@gmail.com';
+  const pass = (process.env.SMTP_PASS || 'ocdzrpuxoipislrz').replace(/\s+/g, '');
 
   if (user && pass) {
     transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.SMTP_PORT, 10) || 465,
+      port: parseInt(process.env.SMTP_PORT || '465', 10),
       secure: (process.env.SMTP_PORT || '465') === '465',
-      auth: { user, pass }
+      auth: { user, pass },
+      connectionTimeout: 8000,
+      greetingTimeout: 5000,
+      socketTimeout: 8000
     });
   }
   return transporter;
@@ -151,7 +154,7 @@ export async function sendOtpEmail({ to, recipientName = 'User', otp }) {
 
   if (mailer) {
     try {
-      const fromAddr = process.env.SMTP_FROM || `"CarromX Auth" <${process.env.SMTP_USER}>`;
+      const fromAddr = process.env.SMTP_FROM || `"CarromX Auth" <${process.env.SMTP_USER || 'carrromx@gmail.com'}>`;
       const info = await mailer.sendMail({ from: fromAddr, to, subject, html });
       console.log(`[EMAIL-OTP-SUCCESS] OTP email delivered to ${to} (MessageId: ${info.messageId})`);
       return { success: true, messageId: info.messageId };
@@ -190,7 +193,7 @@ export async function sendPasswordResetEmail({ to, recipientName = 'User', otp }
 
   if (mailer) {
     try {
-      const fromAddr = process.env.SMTP_FROM || `"CarromX Security" <${process.env.SMTP_USER}>`;
+      const fromAddr = process.env.SMTP_FROM || `"CarromX Security" <${process.env.SMTP_USER || 'carrromx@gmail.com'}>`;
       const info = await mailer.sendMail({ from: fromAddr, to, subject, html });
       console.log(`[PASSWORD-RESET-EMAIL-SUCCESS] Reset email delivered to ${to} (MessageId: ${info.messageId})`);
       return { success: true, messageId: info.messageId };

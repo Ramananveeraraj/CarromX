@@ -1751,7 +1751,7 @@
             <input type="hidden" id="authDesiredRole" value="player">
           </div>
 
-          <button onclick="requestOtp()" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-extrabold text-xs shadow-lg transition flex items-center justify-center gap-2">
+          <button id="btnRequestOtp" onclick="requestOtp()" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-extrabold text-xs shadow-lg transition flex items-center justify-center gap-2">
             <span>Send Verification Code</span>
             <i class="fa-solid fa-arrow-right"></i>
           </button>
@@ -1766,29 +1766,37 @@
 
         <!-- Step 2: OTP Verification -->
         <div id="authStepOtp" class="hidden space-y-3.5">
-          <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 text-center space-y-1">
-            <span class="text-[11px] text-slate-400 block">Verification code sent to email:</span>
+          <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-center space-y-1">
+            <span class="text-[11px] text-slate-400 block font-semibold">Verification code sent to email:</span>
             <span id="otpTargetEmail" class="font-mono font-bold text-amber-400 text-sm block"></span>
             <span id="otpTargetPhone" class="font-mono text-[11px] text-slate-400 block"></span>
-            <span class="text-[10px] text-emerald-400 block pt-1"><i class="fa-solid fa-envelope-circle-check mr-1"></i>Check your email inbox or spam folder</span>
+            <span class="text-[10px] text-emerald-400 block pt-1 font-medium"><i class="fa-solid fa-envelope-circle-check mr-1"></i>Check your email inbox or spam folder</span>
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Enter 6-Digit Verification Code</label>
-            <input type="text" id="authOtpInput" maxlength="6" placeholder="Enter 6-digit code" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-center text-xl font-mono tracking-widest text-white focus:outline-none focus:border-amber-500">
+            <label class="block text-xs font-bold text-slate-200 mb-1 flex items-center justify-between">
+              <span>Enter 6-Digit Verification Code</span>
+              <span class="text-[10px] text-amber-400 font-normal">Valid for 10 mins</span>
+            </label>
+            <input type="text" id="authOtpInput" maxlength="6" onkeyup="if(event.key==='Enter') submitVerifyOtp()" placeholder="Enter 6-digit code" class="w-full bg-slate-950 border-2 border-amber-500/60 rounded-xl px-3 py-2.5 text-center text-2xl font-mono tracking-widest text-amber-400 font-black focus:outline-none focus:border-amber-400 shadow-inner">
           </div>
 
           <!-- Instant fallback helper so user is never locked out -->
-          <div id="devOtpHelper" class="hidden p-2.5 rounded-xl bg-amber-950/40 border border-amber-800/40 text-xs text-amber-300 flex items-center justify-between">
-            <span>Instant Code Fallback: <strong id="devOtpCode" class="font-mono font-bold">123456</strong></span>
-            <button onclick="autofillDevOtp()" class="text-[11px] underline font-bold hover:text-white px-2 py-0.5 rounded bg-amber-500/20">Auto-Fill</button>
+          <div id="devOtpHelper" class="p-3 rounded-xl bg-gradient-to-r from-amber-950/60 to-emerald-950/60 border border-amber-500/40 text-xs text-amber-200 flex items-center justify-between shadow-lg">
+            <div>
+              <div class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Instant Login Code</div>
+              <div class="font-mono font-black text-amber-300 text-lg tracking-widest mt-0.5" id="devOtpCode">------</div>
+            </div>
+            <button onclick="autofillDevOtp()" class="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition shadow flex items-center gap-1.5">
+              <i class="fa-solid fa-bolt"></i> Auto-Fill Code
+            </button>
           </div>
 
           <div class="flex gap-2">
             <button onclick="backToPhoneStep()" class="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition">
               <i class="fa-solid fa-arrow-left mr-1"></i> Back
             </button>
-            <button onclick="submitVerifyOtp()" class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-extrabold text-xs shadow-lg transition flex items-center justify-center gap-1.5">
+            <button id="btnVerifyOtp" onclick="submitVerifyOtp()" class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-extrabold text-xs shadow-lg transition flex items-center justify-center gap-1.5">
               <i class="fa-solid fa-check"></i> Verify &amp; Sign In
             </button>
           </div>

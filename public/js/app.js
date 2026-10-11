@@ -2329,6 +2329,7 @@ async function requestOtp() {
   const phone = (document.getElementById('authPhoneInput')?.value || '').trim();
   const email = (document.getElementById('authEmailInput')?.value || '').trim().toLowerCase();
   const name = (document.getElementById('authNameInput')?.value || '').trim();
+  const btn = document.getElementById('btnRequestOtp');
 
   if (!email || !email.includes('@')) {
     alert('Please enter a valid email address to receive your verification code');
@@ -2340,6 +2341,11 @@ async function requestOtp() {
   }
 
   const cleanPhone = phone.startsWith('+') ? phone : (phone.length === 10 ? `+91${phone}` : phone);
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1.5"></i> Sending Verification Code...';
+  }
 
   try {
     const res = await fetch('/api/auth/send-otp', {
@@ -2364,8 +2370,13 @@ async function requestOtp() {
       if (data.devOtp) {
         const helperEl = document.getElementById('devOtpHelper');
         const codeEl = document.getElementById('devOtpCode');
+        const inputEl = document.getElementById('authOtpInput');
         if (codeEl) codeEl.innerText = data.devOtp;
         if (helperEl) helperEl.classList.remove('hidden');
+        if (inputEl) {
+          inputEl.value = data.devOtp; // Auto-fill code into box immediately!
+          inputEl.focus();
+        }
       }
 
       showToastNotification(data.message || 'Verification code sent to your email!');
@@ -2373,13 +2384,24 @@ async function requestOtp() {
       alert(data.error || 'Failed to send verification code');
     }
   } catch (err) {
-    alert(err.message);
+    alert('Network error: ' + err.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<span>Send Verification Code</span> <i class="fa-solid fa-arrow-right ml-1"></i>';
+    }
   }
 }
 
 function autofillDevOtp() {
-  const code = document.getElementById('devOtpCode').innerText;
-  document.getElementById('authOtpInput').value = code;
+  const code = document.getElementById('devOtpCode')?.innerText;
+  if (code && code !== '------') {
+    const inputEl = document.getElementById('authOtpInput');
+    if (inputEl) {
+      inputEl.value = code;
+      inputEl.focus();
+    }
+  }
 }
 
 function backToPhoneStep() {
@@ -2393,6 +2415,7 @@ async function submitVerifyOtp() {
   const otp = (document.getElementById('authOtpInput')?.value || '').trim();
   const name = (document.getElementById('authNameInput')?.value || '').trim();
   const desiredRole = document.getElementById('authDesiredRole')?.value || 'player';
+  const btn = document.getElementById('btnVerifyOtp');
 
   if (!otp) {
     alert('Please enter the 6-digit verification code');
@@ -2400,6 +2423,11 @@ async function submitVerifyOtp() {
   }
 
   const cleanPhone = phone.startsWith('+') ? phone : (phone.length === 10 ? `+91${phone}` : phone);
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Verifying...';
+  }
 
   try {
     const res = await fetch('/api/auth/verify-otp', {
@@ -2437,7 +2465,12 @@ async function submitVerifyOtp() {
       alert(data.error || 'Invalid verification code');
     }
   } catch (err) {
-    alert(err.message);
+    alert('Network error: ' + err.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-check mr-1"></i> Verify & Sign In';
+    }
   }
 }
 
