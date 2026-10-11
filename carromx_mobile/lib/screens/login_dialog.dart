@@ -10,8 +10,9 @@ class LoginDialog extends StatefulWidget {
 
 class _LoginDialogState extends State<LoginDialog> {
   final _api = ApiService();
-  final _phoneController = TextEditingController(text: '+919876543210');
-  final _nameController = TextEditingController(text: 'Rahul Verma');
+  final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _nameController = TextEditingController();
   final _otpController = TextEditingController();
 
   bool _otpSent = false;
@@ -20,11 +21,16 @@ class _LoginDialogState extends State<LoginDialog> {
 
   Future<void> _sendOtp() async {
     final phone = _phoneController.text.trim();
-    if (phone.isEmpty) return;
+    final email = _emailController.text.trim();
+    if (phone.isEmpty && email.isEmpty) return;
 
     setState(() => _isLoading = true);
     try {
-      final res = await _api.sendOtp(phone, _nameController.text.trim());
+      final res = await _api.sendOtp(
+        phone,
+        _nameController.text.trim(),
+        email: email.isNotEmpty ? email : null,
+      );
       setState(() {
         _otpSent = true;
         _devOtp = res['devOtp'] ?? '123456';
@@ -38,9 +44,12 @@ class _LoginDialogState extends State<LoginDialog> {
 
   Future<void> _verifyOtp() async {
     setState(() => _isLoading = true);
+    final phone = _phoneController.text.trim();
+    final email = _emailController.text.trim();
     final ok = await _api.verifyOtp(
-      _phoneController.text.trim(),
+      phone,
       _otpController.text.trim(),
+      email: email.isNotEmpty ? email : null,
       fullName: _nameController.text.trim(),
     );
     setState(() => _isLoading = false);
@@ -102,7 +111,7 @@ class _LoginDialogState extends State<LoginDialog> {
             const Divider(color: Color(0xFF0D4A37)),
             const SizedBox(height: 8),
             const Text(
-              'OR ENTER PHONE NUMBER:',
+              'OR ENTER PHONE NUMBER & EMAIL:',
               style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF6EE7B7)),
             ),
             const SizedBox(height: 8),
@@ -112,7 +121,24 @@ class _LoginDialogState extends State<LoginDialog> {
                 keyboardType: TextInputType.phone,
                 style: const TextStyle(color: Colors.white, fontSize: 13),
                 decoration: InputDecoration(
-                  labelText: 'Phone Number',
+                  labelText: 'Mobile Phone Number',
+                  hintText: 'e.g. 9876543210',
+                  hintStyle: const TextStyle(color: Color(0xFF0D4A37)),
+                  labelStyle: const TextStyle(color: Color(0xFFA7F3D0)),
+                  filled: true,
+                  fillColor: const Color(0xFF021A13),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF0D4A37))),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+                decoration: InputDecoration(
+                  labelText: 'Email Address (Receives OTP)',
+                  hintText: 'e.g. player@gmail.com',
+                  hintStyle: const TextStyle(color: Color(0xFF0D4A37)),
                   labelStyle: const TextStyle(color: Color(0xFFA7F3D0)),
                   filled: true,
                   fillColor: const Color(0xFF021A13),
@@ -125,6 +151,8 @@ class _LoginDialogState extends State<LoginDialog> {
                 style: const TextStyle(color: Colors.white, fontSize: 13),
                 decoration: InputDecoration(
                   labelText: 'Full Name',
+                  hintText: 'Your name',
+                  hintStyle: const TextStyle(color: Color(0xFF0D4A37)),
                   labelStyle: const TextStyle(color: Color(0xFFA7F3D0)),
                   filled: true,
                   fillColor: const Color(0xFF021A13),
@@ -137,7 +165,7 @@ class _LoginDialogState extends State<LoginDialog> {
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF59E0B)),
                   onPressed: _isLoading ? null : _sendOtp,
-                  child: Text(_isLoading ? 'Sending...' : 'Send SMS OTP', style: const TextStyle(color: Color(0xFF021A13), fontWeight: FontWeight.bold)),
+                  child: Text(_isLoading ? 'Sending...' : 'Send Verification OTP', style: const TextStyle(color: Color(0xFF021A13), fontWeight: FontWeight.bold)),
                 ),
               ),
             ] else ...[

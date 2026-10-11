@@ -2188,24 +2188,28 @@ function selectDesiredRole(role) {
 }
 
 async function requestOtp() {
-  const rawInput = document.getElementById('authPhoneInput').value.trim();
-  const name = document.getElementById('authNameInput').value.trim();
-  if (!rawInput || rawInput.length < 3) {
-    alert('Please enter a valid email address or mobile phone number');
+  const phone = (document.getElementById('authPhoneInput')?.value || '').trim();
+  const email = (document.getElementById('authEmailInput')?.value || '').trim().toLowerCase();
+  const name = (document.getElementById('authNameInput')?.value || '').trim();
+
+  if (!email || !email.includes('@')) {
+    alert('Please enter a valid email address to receive your verification code');
+    return;
+  }
+  if (!phone || phone.length < 8) {
+    alert('Please enter your 10-digit mobile phone number');
     return;
   }
 
-  const isEmail = rawInput.includes('@');
-  const target = isEmail ? rawInput.toLowerCase() : (rawInput.startsWith('+') ? rawInput : (rawInput.length === 10 ? `+91${rawInput}` : rawInput));
+  const cleanPhone = phone.startsWith('+') ? phone : (phone.length === 10 ? `+91${phone}` : phone);
 
   try {
     const res = await fetch('/api/auth/send-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        identifier: target,
-        email: isEmail ? target : undefined,
-        phoneNumber: !isEmail ? target : undefined,
+        phoneNumber: cleanPhone,
+        email: email,
         fullName: name
       })
     });
@@ -2213,11 +2217,20 @@ async function requestOtp() {
     if (res.ok) {
       document.getElementById('authStepPhone').classList.add('hidden');
       document.getElementById('authStepOtp').classList.remove('hidden');
+
+      const targetEmailEl = document.getElementById('otpTargetEmail');
+      if (targetEmailEl) targetEmailEl.innerText = data.targetEmail || email;
       const targetPhoneEl = document.getElementById('otpTargetPhone');
-      if (targetPhoneEl) targetPhoneEl.innerText = target;
+      if (targetPhoneEl) targetPhoneEl.innerText = `Mobile: ${data.targetPhone || cleanPhone}`;
+
       if (data.devOtp) {
-        document.getElementById('devOtpCode').innerText = data.devOtp;
+        const helperEl = document.getElementById('devOtpHelper');
+        const codeEl = document.getElementById('devOtpCode');
+        if (codeEl) codeEl.innerText = data.devOtp;
+        if (helperEl) helperEl.classList.remove('hidden');
       }
+
+      showToastNotification(data.message || 'Verification code sent to your email!');
     } else {
       alert(data.error || 'Failed to send verification code');
     }
@@ -2237,11 +2250,10 @@ function backToPhoneStep() {
 }
 
 async function submitVerifyOtp() {
-  const rawInput = document.getElementById('authPhoneInput').value.trim();
-  const isEmail = rawInput.includes('@');
-  const target = isEmail ? rawInput.toLowerCase() : (rawInput.startsWith('+') ? rawInput : (rawInput.length === 10 ? `+91${rawInput}` : rawInput));
-  const otp = document.getElementById('authOtpInput').value.trim();
-  const name = document.getElementById('authNameInput').value.trim();
+  const phone = (document.getElementById('authPhoneInput')?.value || '').trim();
+  const email = (document.getElementById('authEmailInput')?.value || '').trim().toLowerCase();
+  const otp = (document.getElementById('authOtpInput')?.value || '').trim();
+  const name = (document.getElementById('authNameInput')?.value || '').trim();
   const desiredRole = document.getElementById('authDesiredRole')?.value || 'player';
 
   if (!otp) {
@@ -2249,14 +2261,15 @@ async function submitVerifyOtp() {
     return;
   }
 
+  const cleanPhone = phone.startsWith('+') ? phone : (phone.length === 10 ? `+91${phone}` : phone);
+
   try {
     const res = await fetch('/api/auth/verify-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        identifier: target,
-        email: isEmail ? target : undefined,
-        phoneNumber: !isEmail ? target : undefined,
+        phoneNumber: cleanPhone,
+        email: email,
         otp,
         fullName: name,
         desiredRole

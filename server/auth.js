@@ -8,15 +8,27 @@ const JWT_SECRET = process.env.JWT_SECRET || 'carromx-super-secret-jwt-key-2026'
 const otpStore = new Map();
 
 /**
- * Generate and store a 6-digit OTP for a phone number
+ * Generate and store a 6-digit OTP for an identifier (phone or email)
  */
-export function generateOtp(phoneNumber) {
-  const cleanPhone = phoneNumber.trim();
+export function generateOtp(identifier) {
+  const cleanKey = identifier.trim().toLowerCase();
   // Standard 6-digit numeric OTP
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
-  otpStore.set(cleanPhone, { otp, expiresAt });
+  const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+  otpStore.set(cleanKey, { otp, expiresAt });
   return otp;
+}
+
+/**
+ * Store same OTP across multiple keys (e.g. both email and phone number)
+ */
+export function storeOtpForKeys(keys, otp) {
+  const expiresAt = Date.now() + 10 * 60 * 1000;
+  for (const k of keys) {
+    if (k) {
+      otpStore.set(k.trim().toLowerCase(), { otp, expiresAt });
+    }
+  }
 }
 
 /**

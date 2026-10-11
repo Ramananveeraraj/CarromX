@@ -1680,25 +1680,39 @@
       <!-- PORTAL TAB 1: PLAYER & ORGANISER SIGN IN / REGISTER -->
       <div id="authPanelRegular" class="space-y-4">
         
-        <!-- Step 1: Phone, Name, & "Who are you?" Role Choice -->
+        <!-- Step 1: Mobile Phone, Email Address, Name, & "Who are you?" Role Choice -->
         <div id="authStepPhone" class="space-y-3.5">
           
           <div>
             <label class="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
-              <span>Email Address or Mobile Number *</span>
-              <span class="text-[10px] text-amber-400 font-normal"><i class="fa-solid fa-envelope mr-1"></i>Free Email OTP</span>
+              <span>Mobile Phone Number *</span>
+              <span class="text-[10px] text-slate-400 font-normal"><i class="fa-solid fa-phone mr-1"></i>Required for match calls</span>
+            </label>
+            <div class="relative">
+              <span class="absolute left-3 top-2.5 text-xs text-slate-400 font-mono font-semibold">
+                +91
+              </span>
+              <input type="tel" id="authPhoneInput" maxlength="10" placeholder="Enter 10-digit mobile number" class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-12 pr-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-amber-500">
+            </div>
+            <span class="text-[10px] text-slate-400 mt-0.5 block">Used for referee board calls and tournament registration.</span>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
+              <span>Email Address *</span>
+              <span class="text-[10px] text-amber-400 font-normal"><i class="fa-solid fa-envelope mr-1"></i>Receives OTP Code</span>
             </label>
             <div class="relative">
               <span class="absolute left-3 top-2.5 text-xs text-slate-400 font-mono font-semibold">
                 <i class="fa-solid fa-at"></i>
               </span>
-              <input type="text" id="authPhoneInput" placeholder="Enter your email or mobile number" class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-amber-500">
+              <input type="email" id="authEmailInput" placeholder="Enter email (e.g. name@gmail.com)" class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-amber-500">
             </div>
-            <span class="text-[10px] text-slate-400 mt-1 block">Enter your registered email address or mobile number to receive your verification code.</span>
+            <span class="text-[10px] text-slate-400 mt-0.5 block">Your 6-digit login verification OTP and match alerts will arrive here.</span>
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Your Full Name (For New Registrations)</label>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Your Full Name</label>
             <input type="text" id="authNameInput" placeholder="Enter your full name" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500">
           </div>
 
@@ -1746,10 +1760,11 @@
 
         <!-- Step 2: OTP Verification -->
         <div id="authStepOtp" class="hidden space-y-3.5">
-          <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 text-center">
-            <span class="text-[11px] text-slate-400 block">Verification code sent to</span>
-            <span id="otpTargetPhone" class="font-mono font-bold text-amber-400 text-sm">your email or phone</span>
-            <span class="text-[10px] text-emerald-400 block mt-1"><i class="fa-solid fa-envelope-circle-check mr-1"></i>Check your email inbox or spam folder</span>
+          <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 text-center space-y-1">
+            <span class="text-[11px] text-slate-400 block">Verification code sent to email:</span>
+            <span id="otpTargetEmail" class="font-mono font-bold text-amber-400 text-sm block"></span>
+            <span id="otpTargetPhone" class="font-mono text-[11px] text-slate-400 block"></span>
+            <span class="text-[10px] text-emerald-400 block pt-1"><i class="fa-solid fa-envelope-circle-check mr-1"></i>Check your email inbox or spam folder</span>
           </div>
 
           <div>
@@ -1757,10 +1772,10 @@
             <input type="text" id="authOtpInput" maxlength="6" placeholder="Enter 6-digit code" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-center text-xl font-mono tracking-widest text-white focus:outline-none focus:border-amber-500">
           </div>
 
-          <!-- Offline helper hidden in production -->
+          <!-- Instant fallback helper so user is never locked out -->
           <div id="devOtpHelper" class="hidden p-2.5 rounded-xl bg-amber-950/40 border border-amber-800/40 text-xs text-amber-300 flex items-center justify-between">
-            <span>Offline Test OTP: <strong id="devOtpCode" class="font-mono font-bold">123456</strong></span>
-            <button onclick="autofillDevOtp()" class="text-[11px] underline font-bold hover:text-white">Auto-Fill</button>
+            <span>Instant Code Fallback: <strong id="devOtpCode" class="font-mono font-bold">123456</strong></span>
+            <button onclick="autofillDevOtp()" class="text-[11px] underline font-bold hover:text-white px-2 py-0.5 rounded bg-amber-500/20">Auto-Fill</button>
           </div>
 
           <div class="flex gap-2">

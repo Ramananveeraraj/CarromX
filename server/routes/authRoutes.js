@@ -1,74 +1,109 @@
 import express from 'express';
 import { query } from '../db.js';
-import { generateOtp, verifyStoredOtp, generateToken, authenticateToken, normalizeRole } from '../auth.js';
+import { generateOtp, storeOtpForKeys, verifyStoredOtp, generateToken, authenticateToken, normalizeRole } from '../auth.js';
 import crypto from 'crypto';
 import { sendOtpEmail } from '../emailService.js';
 
 const router = express.Router();
 
 /**
- * Send OTP for Email or Phone Authentication
+ * Send OTP for Email and Mobile Phone Authentication
  */
 router.post('/send-otp', async (req, res) => {
   try {
     const { phoneNumber, email, identifier, fullName } = req.body;
-    const rawTarget = (email || identifier || phoneNumber || '').trim();
+    const rawPhone = (phoneNumber || '').trim();
+    const rawEmail = (email || '').trim().toLowerCase();
+    const rawId = (identifier || '').trim();
 
-    if (!rawTarget || rawTarget.length < 3) {
-      return res.status(400).json({ error: 'Valid email address or mobile phone number is required' });
-    }
-
-    const isEmail = rawTarget.includes('@');
-    let cleanTarget = rawTarget;
+    let cleanPhone = null;
     let targetEmail = null;
-    let recipientName = fullName || 'CarromX Player';
 
-    if (isEmail) {
-      cleanTarget = rawTarget.toLowerCase();
-      targetEmail = cleanTarget;
-      const userRes = await query('SELECT user_id, full_name, email, role FROM users WHERE LOWER(email) = $1', [cleanTarget]);
-      if (userRes.rows.length > 0 && userRes.rows[0].full_name) {
-        recipientName = userRes.rows[0].full_name;
-      }
-    } else {
-      cleanTarget = rawTarget.startsWith('+') ? rawTarget : (rawTarget.length === 10 ? `+91${rawTarget}` : rawTarget);
-      const userRes = await query('SELECT user_id, full_name, email, role FROM users WHERE phone_number = $1', [cleanTarget]);
-      if (userRes.rows.length > 0) {
-        if (userRes.rows[0].full_name) recipientName = userRes.rows[0].full_name;
-        if (userRes.rows[0].email && !userRes.rows[0].email.endsWith('@carromx.local')) {
-          targetEmail = userRes.rows[0].email;
-        }
+    if (rawPhone && rawPhone.length >= 8) {
+      cleanPhone = rawPhone.startsWith('+') ? rawPhone : (rawPhone.length === 10 ? `+91${rawPhone}` : rawPhone);
+    }
+    if (rawEmail && rawEmail.includes('@')) {
+      targetEmail = rawEmail;
+    }
+
+    // Fallback if only identifier was passed
+    if (!cleanPhone && !targetEmail && rawId) {
+      if (rawId.includes('@')) {
+        targetEmail = rawId.toLowerCase();
+      } else {
+        cleanPhone = rawId.startsWith('+') ? rawId : (rawId.length === 10 ? `+91${rawId}` : rawId);
       }
     }
 
-    // Generate 6-digit OTP stored in auth cache
-    const otp = generateOtp(cleanTarget);
+    // If phone is provided but email is not, check if user exists with an email
+    if (cleanPhone && !targetEmail) {
+      const uRes = await query('SELECT email, full_name FROM users WHERE phone_number = $1', [cleanPhone]);
+      if (uRes.rows.length > 0 && uRes.rows[0].email && !uRes.rows[0].email.endsWith('@carromx.local')) {
+        targetEmail = uRes.rows[0].email;
+      }
+    }
 
-    // If an email address is available or was entered, dispatch OTP to mail inbox
-    let emailStatus = null;
+    // If email is provided but phone is not, check if user exists with a phone
+    if (targetEmail && !cleanPhone) {
+      const uRes = await query('SELECT phone_number, full_name FROM users WHERE LOWER(email) = $1', [targetEmail]);
+      if (uRes.rows.length > 0 && uRes.rows[0].phone_number) {
+        cleanPhone = uRes.rows[0].phone_number;
+      }
+    }
+
+    if (!cleanPhone && !targetEmail) {
+      return res.status(400).json({ error: 'Please enter your mobile phone number and email address.' });
+    }
+
+    // Primary key for OTP generation
+    const primaryKey = targetEmail || cleanPhone;
+    const otp = generateOtp(primaryKey);
+    // Also store for secondary key so verify-otp works with either!
+    storeOtpForKeys([targetEmail, cleanPhone], otp);
+
+    let recipientName = fullName || 'CarromX Player';
+    if (!fullName) {
+      if (targetEmail) {
+        const uRes = await query('SELECT full_name FROM users WHERE LOWER(email) = $1', [targetEmail]);
+        if (uRes.rows[0]?.full_name) recipientName = uRes.rows[0].full_name;
+      } else if (cleanPhone) {
+        const uRes = await query('SELECT full_name FROM users WHERE phone_number = $1', [cleanPhone]);
+        if (uRes.rows[0]?.full_name) recipientName = uRes.rows[0].full_name;
+      }
+    }
+
+    let emailSent = false;
+    let emailError = null;
+
     if (targetEmail) {
       try {
-        emailStatus = await sendOtpEmail({
+        const mailRes = await sendOtpEmail({
           to: targetEmail,
           recipientName,
           otp
         });
+        emailSent = Boolean(mailRes?.success);
+        if (!mailRes?.success) emailError = mailRes?.error;
       } catch (err) {
-        console.warn('[EMAIL-SEND-FAIL]', err.message);
+        emailError = err.message;
+        console.warn('[EMAIL-DISPATCH-FAIL]', err.message);
       }
     }
 
-    console.log(`[AUTH-OTP] Generated OTP for ${cleanTarget} is: ${otp} ${targetEmail ? `(Dispatched to ${targetEmail})` : ''}`);
+    console.log(`[AUTH-OTP] OTP for ${cleanPhone || ''} / ${targetEmail || ''}: ${otp} (Email Sent: ${emailSent})`);
 
     res.json({
       success: true,
-      message: isEmail 
-        ? `OTP verification code sent to ${cleanTarget}`
-        : `OTP verification code sent to ${cleanTarget}${targetEmail ? ` and email ${targetEmail}` : ''}`,
-      target: cleanTarget,
-      isEmail,
-      emailSent: !!targetEmail,
-      // Provide OTP for fast fallback / zero-friction testing
+      message: emailSent
+        ? `Verification code sent to your email inbox: ${targetEmail}`
+        : (targetEmail 
+            ? `OTP generated for ${targetEmail}. (Check inbox/spam or use code below)` 
+            : `OTP sent to ${cleanPhone}`),
+      targetEmail,
+      targetPhone: cleanPhone,
+      emailSent,
+      emailError,
+      // Provide OTP in response so nobody is blocked if SMTP is pending or in spam
       devOtp: otp
     });
   } catch (err) {
@@ -146,36 +181,53 @@ router.post('/verify-otp', async (req, res) => {
     const rawTarget = (email || identifier || phoneNumber || '').trim();
 
     if (!rawTarget || !otp) {
-      return res.status(400).json({ error: 'Email or Phone number and OTP are required' });
+      return res.status(400).json({ error: 'Email/Phone number and OTP code are required' });
     }
 
-    const isEmail = rawTarget.includes('@');
-    const cleanTarget = isEmail ? rawTarget.toLowerCase() : (rawTarget.startsWith('+') ? rawTarget : (rawTarget.length === 10 ? `+91${rawTarget}` : rawTarget));
-    const isValid = verifyStoredOtp(cleanTarget, otp);
+    const rawEmail = (email || (rawTarget.includes('@') ? rawTarget : '')).trim().toLowerCase();
+    const cleanEmail = rawEmail.includes('@') ? rawEmail : null;
+
+    let rawPhone = (phoneNumber || (!rawTarget.includes('@') ? rawTarget : '')).trim();
+    let cleanPhone = null;
+    if (rawPhone && rawPhone.length >= 8) {
+      cleanPhone = rawPhone.startsWith('+') ? rawPhone : (rawPhone.length === 10 ? `+91${rawPhone}` : rawPhone);
+    }
+
+    // Verify OTP against stored OTP keys
+    let isValid = false;
+    if (cleanEmail && verifyStoredOtp(cleanEmail, otp)) {
+      isValid = true;
+    } else if (cleanPhone && verifyStoredOtp(cleanPhone, otp)) {
+      isValid = true;
+    } else if (rawTarget && verifyStoredOtp(rawTarget, otp)) {
+      isValid = true;
+    }
 
     if (!isValid) {
-      return res.status(400).json({ error: 'Invalid or expired OTP. Please try again.' });
+      return res.status(400).json({ error: 'Invalid or expired OTP. Please check your email or request a new code.' });
     }
 
     const targetRole = (desiredRole || role) ? normalizeRole(desiredRole || role) : null;
 
-    // Find or create user
-    let userRes;
-    if (isEmail) {
-      userRes = await query('SELECT * FROM users WHERE LOWER(email) = $1', [cleanTarget]);
-    } else {
-      userRes = await query('SELECT * FROM users WHERE phone_number = $1', [cleanTarget]);
+    // Find user by either email or phone
+    let userRes = { rows: [] };
+    if (cleanEmail && cleanPhone) {
+      userRes = await query('SELECT * FROM users WHERE LOWER(email) = $1 OR phone_number = $2', [cleanEmail, cleanPhone]);
+    } else if (cleanEmail) {
+      userRes = await query('SELECT * FROM users WHERE LOWER(email) = $1', [cleanEmail]);
+    } else if (cleanPhone) {
+      userRes = await query('SELECT * FROM users WHERE phone_number = $1', [cleanPhone]);
     }
 
     let user;
 
     if (userRes.rows.length === 0) {
-      const isSuperAdminEmail = cleanTarget === 'carrromx@gmail.com';
+      const isSuperAdminEmail = (cleanEmail === 'carrromx@gmail.com');
       const assignedRole = isSuperAdminEmail ? 'super_admin' : (targetRole || 'player');
       const newUserId = isSuperAdminEmail ? 'usr_admin_carromx' : ('usr_' + crypto.randomUUID().slice(0, 10));
-      const name = fullName ? fullName.trim() : (isEmail ? cleanTarget.split('@')[0] : `User_${cleanTarget.slice(-4)}`);
-      const userEmail = isEmail ? cleanTarget : `${newUserId}@carromx.local`;
-      const userPhone = isEmail ? '+919876543210' : cleanTarget;
+      const name = fullName?.trim() || (cleanEmail ? cleanEmail.split('@')[0] : (cleanPhone ? `User_${cleanPhone.slice(-4)}` : 'Player'));
+      const userEmail = cleanEmail || `${newUserId}@carromx.local`;
+      const userPhone = cleanPhone || '+919876543210';
 
       await query(
         `INSERT INTO users (user_id, full_name, phone_number, email, role, created_at)
@@ -187,11 +239,30 @@ router.post('/verify-otp', async (req, res) => {
       user = created.rows[0];
     } else {
       user = userRes.rows[0];
-      // Update role if explicitly provided during login / registration
+      // Update missing or placeholder email with the provided cleanEmail
+      if (cleanEmail && (!user.email || user.email.endsWith('@carromx.local') || user.email.toLowerCase() !== cleanEmail)) {
+        try {
+          await query('UPDATE users SET email = $1 WHERE user_id = $2', [cleanEmail, user.user_id]);
+          user.email = cleanEmail;
+        } catch (e) {
+          // ignore duplicate email constraint if already assigned
+        }
+      }
+      // Update missing or placeholder phone with cleanPhone
+      if (cleanPhone && (!user.phone_number || user.phone_number === '+919876543210' || user.phone_number !== cleanPhone)) {
+        try {
+          await query('UPDATE users SET phone_number = $1 WHERE user_id = $2', [cleanPhone, user.user_id]);
+          user.phone_number = cleanPhone;
+        } catch (e) {
+          // ignore duplicate phone constraint if already assigned
+        }
+      }
+      // Update role if explicitly provided
       if (targetRole && user.role !== targetRole) {
         await query('UPDATE users SET role = $1 WHERE user_id = $2', [targetRole, user.user_id]);
         user.role = targetRole;
       }
+      // Update full_name if provided and current name is placeholder
       if (fullName && fullName.trim() && (!user.full_name || user.full_name.startsWith('User_') || user.full_name.startsWith('Player_'))) {
         await query('UPDATE users SET full_name = $1 WHERE user_id = $2', [fullName.trim(), user.user_id]);
         user.full_name = fullName.trim();

@@ -100,22 +100,27 @@ class ApiService extends ChangeNotifier {
     return false;
   }
 
-  Future<Map<String, dynamic>> sendOtp(String phone, String name) async {
+  Future<Map<String, dynamic>> sendOtp(String phone, String name, {String? email}) async {
     final res = await http.post(
       Uri.parse('$_baseUrl/api/auth/send-otp'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'phoneNumber': phone, 'fullName': name}),
+      body: jsonEncode({
+        'phoneNumber': phone,
+        'email': email,
+        'fullName': name
+      }),
     );
     return jsonDecode(res.body);
   }
 
-  Future<bool> verifyOtp(String phone, String otp, {String? fullName, String? desiredRole}) async {
+  Future<bool> verifyOtp(String phone, String otp, {String? fullName, String? email, String? desiredRole}) async {
     try {
       final res = await http.post(
         Uri.parse('$_baseUrl/api/auth/verify-otp'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'phoneNumber': phone,
+          'email': email,
           'otp': otp,
           'fullName': fullName ?? 'Carrom User',
           'desiredRole': desiredRole ?? _activeRole,
