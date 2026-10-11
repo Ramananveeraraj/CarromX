@@ -6,6 +6,19 @@ import { sendOtpEmail, sendPasswordResetEmail } from '../emailService.js';
 
 const router = express.Router();
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
+const PHONE_REGEX = /^\+?[0-9]{10,15}$/;
+
+function isValidEmail(val) {
+  return typeof val === 'string' && EMAIL_REGEX.test(val.trim());
+}
+
+function isValidPhone(val) {
+  if (typeof val !== 'string') return false;
+  const digits = val.replace(/\D/g, '');
+  return digits.length === 10 || (digits.length >= 10 && digits.length <= 15);
+}
+
 /**
  * Send OTP for Email and Mobile Phone Authentication
  */
@@ -16,22 +29,31 @@ router.post('/send-otp', async (req, res) => {
     const rawEmail = (email || '').trim().toLowerCase();
     const rawId = (identifier || '').trim();
 
+    if (rawEmail && !isValidEmail(rawEmail)) {
+      return res.status(400).json({ error: 'Please enter a valid email address (e.g. player@gmail.com)' });
+    }
+    if (rawPhone && !isValidPhone(rawPhone)) {
+      return res.status(400).json({ error: 'Please enter a valid 10-digit mobile phone number' });
+    }
+
     let cleanPhone = null;
     let targetEmail = null;
 
-    if (rawPhone && rawPhone.length >= 8) {
-      cleanPhone = rawPhone.startsWith('+') ? rawPhone : (rawPhone.length === 10 ? `+91${rawPhone}` : rawPhone);
+    if (rawPhone && isValidPhone(rawPhone)) {
+      const digits = rawPhone.replace(/\D/g, '');
+      cleanPhone = rawPhone.startsWith('+') ? rawPhone : (digits.length === 10 ? `+91${digits}` : `+${digits}`);
     }
-    if (rawEmail && rawEmail.includes('@')) {
+    if (rawEmail && isValidEmail(rawEmail)) {
       targetEmail = rawEmail;
     }
 
     // Fallback if only identifier was passed
     if (!cleanPhone && !targetEmail && rawId) {
-      if (rawId.includes('@')) {
+      if (isValidEmail(rawId)) {
         targetEmail = rawId.toLowerCase();
-      } else {
-        cleanPhone = rawId.startsWith('+') ? rawId : (rawId.length === 10 ? `+91${rawId}` : rawId);
+      } else if (isValidPhone(rawId)) {
+        const digits = rawId.replace(/\D/g, '');
+        cleanPhone = rawId.startsWith('+') ? rawId : (digits.length === 10 ? `+91${digits}` : `+${digits}`);
       }
     }
 
@@ -119,12 +141,23 @@ router.post('/login', async (req, res) => {
   try {
     const { email, phoneNumber, password, identifier } = req.body;
     const inputEmail = (email || (identifier && identifier.includes('@') ? identifier : '')).trim().toLowerCase();
-    const rawPhone = (phoneNumber || (!identifier?.includes('@') ? identifier : '')).trim();
-    const cleanPhone = rawPhone.length >= 8 ? (rawPhone.startsWith('+') ? rawPhone : (rawPhone.length === 10 ? `+91${rawPhone}` : rawPhone)) : null;
+    const rawPhone = (phoneNumber || (!identifier?.includes('@') ? identifier : '') || '').trim();
+    const rawPhoneDigits = rawPhone.replace(/\D/g, '');
+    const cleanPhone = rawPhoneDigits.length >= 10 ? (rawPhone.startsWith('+') ? rawPhone : (rawPhoneDigits.length === 10 ? `+91${rawPhoneDigits}` : `+${rawPhoneDigits}`)) : null;
     const inputPassword = (password || '').trim();
 
     if ((!inputEmail && !cleanPhone) || !inputPassword) {
       return res.status(400).json({ error: 'Email, mobile phone number, and password are required' });
+    }
+
+    if (inputEmail && !isValidEmail(inputEmail)) {
+      return res.status(400).json({ error: 'Please enter a valid email address' });
+    }
+    if (cleanPhone && !isValidPhone(cleanPhone)) {
+      return res.status(400).json({ error: 'Please enter a valid 10-digit mobile phone number' });
+    }
+    if (inputPassword.length < 4) {
+      return res.status(400).json({ error: 'Password must be at least 4 characters long' });
     }
 
     let userRes = { rows: [] };
@@ -207,8 +240,8 @@ router.post('/forgot-password', async (req, res) => {
     const { email, identifier } = req.body;
     const rawTarget = (email || identifier || '').trim().toLowerCase();
 
-    if (!rawTarget || !rawTarget.includes('@')) {
-      return res.status(400).json({ error: 'Please enter a valid registered email address.' });
+    if (!rawTarget || !isValidEmail(rawTarget)) {
+      return res.status(400).json({ error: 'Please enter a valid registered email address (e.g. name@gmail.com)' });
     }
 
     const cleanEmail = rawTarget;
@@ -284,6 +317,14 @@ router.post('/reset-password', async (req, res) => {
       return res.status(400).json({ error: 'Email, OTP code, and new password are required.' });
     }
 
+    if (!isValidEmail(cleanEmail)) {
+      return res.status(400).json({ error: 'A valid email address is required.' });
+    }
+
+    if (!/^\d{6}$/.test(cleanOtp)) {
+      return res.status(400).json({ error: 'Reset code must be a 6-digit numeric code.' });
+    }
+
     if (cleanPass.length < 6) {
       return res.status(400).json({ error: 'New password must be at least 6 characters long.' });
     }
@@ -344,13 +385,18 @@ router.post('/verify-otp', async (req, res) => {
       return res.status(400).json({ error: 'Email/Phone number and OTP code are required' });
     }
 
+    if (!/^\d{6}$/.test(otp.trim())) {
+      return res.status(400).json({ error: 'Verification code must be exactly 6 digits.' });
+    }
+
     const rawEmail = (email || (rawTarget.includes('@') ? rawTarget : '')).trim().toLowerCase();
     const cleanEmail = rawEmail.includes('@') ? rawEmail : null;
 
     let rawPhone = (phoneNumber || (!rawTarget.includes('@') ? rawTarget : '')).trim();
+    const digits = rawPhone.replace(/\D/g, '');
     let cleanPhone = null;
-    if (rawPhone && rawPhone.length >= 8) {
-      cleanPhone = rawPhone.startsWith('+') ? rawPhone : (rawPhone.length === 10 ? `+91${rawPhone}` : rawPhone);
+    if (digits.length >= 10) {
+      cleanPhone = rawPhone.startsWith('+') ? rawPhone : (digits.length === 10 ? `+91${digits}` : `+${digits}`);
     }
 
     // Verify OTP against stored OTP keys

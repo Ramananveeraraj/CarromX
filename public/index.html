@@ -1692,7 +1692,11 @@
               <span class="absolute left-3 top-2.5 text-xs text-slate-400 font-mono font-semibold">
                 +91
               </span>
-              <input type="tel" id="authPhoneInput" maxlength="10" placeholder="Enter 10-digit mobile number" class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-12 pr-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-amber-500">
+              <input type="tel" id="authPhoneInput" maxlength="10" inputmode="numeric" pattern="[0-9]{10}" placeholder="Enter 10-digit mobile number" oninput="handlePhoneInput(this, 'authPhoneError')" class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-12 pr-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-amber-500 transition-colors">
+            </div>
+            <div id="authPhoneError" class="hidden text-[11px] text-rose-400 mt-1 flex items-center gap-1 font-medium">
+              <i class="fa-solid fa-circle-exclamation text-xs"></i>
+              <span></span>
             </div>
             <span class="text-[10px] text-slate-400 mt-0.5 block">Used for referee board calls and tournament registration.</span>
           </div>
@@ -1706,14 +1710,22 @@
               <span class="absolute left-3 top-2.5 text-xs text-slate-400 font-mono font-semibold">
                 <i class="fa-solid fa-at"></i>
               </span>
-              <input type="email" id="authEmailInput" placeholder="Enter email (e.g. name@gmail.com)" class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-amber-500">
+              <input type="email" id="authEmailInput" placeholder="Enter email (e.g. name@gmail.com)" oninput="handleEmailInput(this, 'authEmailError')" class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-amber-500 transition-colors">
+            </div>
+            <div id="authEmailError" class="hidden text-[11px] text-rose-400 mt-1 flex items-center gap-1 font-medium">
+              <i class="fa-solid fa-circle-exclamation text-xs"></i>
+              <span></span>
             </div>
             <span class="text-[10px] text-slate-400 mt-0.5 block">Your 6-digit login verification OTP and match alerts will arrive here.</span>
           </div>
 
           <div>
             <label class="block text-xs font-semibold text-slate-300 mb-1">Your Full Name</label>
-            <input type="text" id="authNameInput" placeholder="Enter your full name" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500">
+            <input type="text" id="authNameInput" placeholder="Enter your full name" oninput="handleNameInput(this, 'authNameError')" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 transition-colors">
+            <div id="authNameError" class="hidden text-[11px] text-rose-400 mt-1 flex items-center gap-1 font-medium">
+              <i class="fa-solid fa-circle-exclamation text-xs"></i>
+              <span></span>
+            </div>
           </div>
 
           <!-- "Who Are You?" Interactive Selector (Player vs Organiser) -->
@@ -1781,7 +1793,11 @@
               <span>Enter 6-Digit Code Received in Email</span>
               <span class="text-[10px] text-amber-400 font-normal">Valid for 10 mins</span>
             </label>
-            <input type="text" id="authOtpInput" maxlength="6" onkeyup="if(event.key==='Enter') submitVerifyOtp()" placeholder="Enter 6-digit code" class="w-full bg-slate-950 border-2 border-slate-700 focus:border-amber-500 rounded-xl px-3 py-2.5 text-center text-2xl font-mono tracking-widest text-amber-400 font-black focus:outline-none shadow-inner">
+            <input type="text" id="authOtpInput" maxlength="6" inputmode="numeric" pattern="[0-9]{6}" oninput="handleOtpInput(this, 'authOtpError')" onkeyup="if(event.key==='Enter') submitVerifyOtp()" placeholder="Enter 6-digit code" class="w-full bg-slate-950 border-2 border-slate-700 focus:border-amber-500 rounded-xl px-3 py-2.5 text-center text-2xl font-mono tracking-widest text-amber-400 font-black focus:outline-none shadow-inner transition-colors">
+            <div id="authOtpError" class="hidden text-[11px] text-rose-400 mt-1.5 flex items-center justify-center gap-1 font-medium text-center">
+              <i class="fa-solid fa-circle-exclamation text-xs"></i>
+              <span></span>
+            </div>
           </div>
 
           <!-- Backup helper: shown if user clicks or needs fallback -->
@@ -1834,7 +1850,11 @@
               <span class="absolute left-3 top-2.5 text-xs text-slate-400 font-mono font-semibold">
                 +91
               </span>
-              <input type="tel" id="adminPhoneInput" maxlength="10" placeholder="Enter admin mobile number" class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-12 pr-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-purple-500" autocomplete="tel">
+              <input type="tel" id="adminPhoneInput" maxlength="10" inputmode="numeric" pattern="[0-9]{10}" placeholder="Enter admin mobile number" oninput="handlePhoneInput(this, 'adminPhoneError')" class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-12 pr-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-purple-500 transition-colors" autocomplete="tel">
+            </div>
+            <div id="adminPhoneError" class="hidden text-[11px] text-rose-400 mt-1 flex items-center gap-1 font-medium">
+              <i class="fa-solid fa-circle-exclamation text-xs"></i>
+              <span></span>
             </div>
           </div>
 
@@ -1847,13 +1867,26 @@
               <span class="absolute left-3 top-2.5 text-xs text-slate-400 font-mono font-semibold">
                 <i class="fa-solid fa-at"></i>
               </span>
-              <input type="email" id="adminEmailInput" placeholder="Enter admin email address" class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-purple-500" autocomplete="username">
+              <input type="email" id="adminEmailInput" placeholder="Enter admin email address" oninput="handleEmailInput(this, 'adminEmailError')" class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-purple-500 transition-colors" autocomplete="username">
+            </div>
+            <div id="adminEmailError" class="hidden text-[11px] text-rose-400 mt-1 flex items-center gap-1 font-medium">
+              <i class="fa-solid fa-circle-exclamation text-xs"></i>
+              <span></span>
             </div>
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Master Password / Access Key</label>
-            <input type="password" id="adminKeyInput" value="" placeholder="Enter master password" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-purple-500" autocomplete="current-password" onkeyup="if(event.key==='Enter') submitSuperAdminLogin()">
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Master Password / Access Key *</label>
+            <div class="relative">
+              <input type="password" id="adminKeyInput" value="" placeholder="Enter master password" oninput="handlePasswordInput(this, 'adminKeyError')" class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-3 pr-10 py-2 text-xs text-white font-mono focus:outline-none focus:border-purple-500 transition-colors" autocomplete="current-password" onkeyup="if(event.key==='Enter') submitSuperAdminLogin()">
+              <button type="button" onclick="togglePasswordVisibility('adminKeyInput', this)" class="absolute right-3 top-2 text-xs text-slate-400 hover:text-white transition" title="Show / Hide Password">
+                <i class="fa-solid fa-eye"></i>
+              </button>
+            </div>
+            <div id="adminKeyError" class="hidden text-[11px] text-rose-400 mt-1 flex items-center gap-1 font-medium">
+              <i class="fa-solid fa-circle-exclamation text-xs"></i>
+              <span></span>
+            </div>
             <div class="flex items-center justify-between text-[11px] pt-1">
               <span class="text-slate-400">Forgot master password?</span>
               <button type="button" onclick="openForgotPasswordView()" class="text-amber-400 hover:text-amber-300 font-semibold underline">
@@ -1888,7 +1921,11 @@
               <span class="absolute left-3 top-2.5 text-xs text-slate-400 font-mono font-semibold">
                 <i class="fa-solid fa-envelope"></i>
               </span>
-              <input type="email" id="forgotEmailInput" placeholder="Enter your registered email" class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-amber-500">
+              <input type="email" id="forgotEmailInput" placeholder="Enter your registered email" oninput="handleEmailInput(this, 'forgotEmailError')" class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-amber-500 transition-colors">
+            </div>
+            <div id="forgotEmailError" class="hidden text-[11px] text-rose-400 mt-1 flex items-center gap-1 font-medium">
+              <i class="fa-solid fa-circle-exclamation text-xs"></i>
+              <span></span>
             </div>
             <span class="text-[10px] text-slate-400 mt-0.5 block">We will send a password reset code to this email inbox.</span>
           </div>
@@ -1915,17 +1952,35 @@
 
           <div>
             <label class="block text-xs font-semibold text-slate-300 mb-1">6-Digit Reset Code</label>
-            <input type="text" id="forgotOtpInput" maxlength="6" placeholder="Enter 6-digit code" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-center text-lg font-mono tracking-widest text-white focus:outline-none focus:border-amber-500">
+            <input type="text" id="forgotOtpInput" maxlength="6" inputmode="numeric" pattern="[0-9]{6}" oninput="handleOtpInput(this, 'forgotOtpError')" placeholder="Enter 6-digit code" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-center text-lg font-mono tracking-widest text-white focus:outline-none focus:border-amber-500 transition-colors">
+            <div id="forgotOtpError" class="hidden text-[11px] text-rose-400 mt-1 flex items-center justify-center gap-1 font-medium text-center">
+              <i class="fa-solid fa-circle-exclamation text-xs"></i>
+              <span></span>
+            </div>
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">New Password</label>
-            <input type="password" id="forgotNewPasswordInput" placeholder="Enter new password (min. 6 characters)" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500">
+            <label class="block text-xs font-semibold text-slate-300 mb-1">New Password (Min. 6 chars)</label>
+            <div class="relative">
+              <input type="password" id="forgotNewPasswordInput" placeholder="Enter new password" oninput="checkPasswordMatch()" class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-3 pr-10 py-2 text-xs text-white focus:outline-none focus:border-amber-500 transition-colors">
+              <button type="button" onclick="togglePasswordVisibility('forgotNewPasswordInput', this)" class="absolute right-3 top-2 text-xs text-slate-400 hover:text-white transition" title="Show / Hide Password">
+                <i class="fa-solid fa-eye"></i>
+              </button>
+            </div>
           </div>
 
           <div>
             <label class="block text-xs font-semibold text-slate-300 mb-1">Confirm New Password</label>
-            <input type="password" id="forgotConfirmPasswordInput" placeholder="Re-enter new password" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500">
+            <div class="relative">
+              <input type="password" id="forgotConfirmPasswordInput" placeholder="Re-enter new password" oninput="checkPasswordMatch()" class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-3 pr-10 py-2 text-xs text-white focus:outline-none focus:border-amber-500 transition-colors">
+              <button type="button" onclick="togglePasswordVisibility('forgotConfirmPasswordInput', this)" class="absolute right-3 top-2 text-xs text-slate-400 hover:text-white transition" title="Show / Hide Password">
+                <i class="fa-solid fa-eye"></i>
+              </button>
+            </div>
+            <div id="forgotPasswordError" class="hidden text-[11px] mt-1 flex items-center gap-1 font-medium">
+              <i class="fa-solid fa-circle-exclamation text-xs"></i>
+              <span></span>
+            </div>
           </div>
 
           <!-- Instant fallback helper so user is never locked out -->

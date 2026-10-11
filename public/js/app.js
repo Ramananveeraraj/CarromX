@@ -2177,17 +2177,170 @@ function backToLoginView() {
   switchAuthPortalTab('admin');
 }
 
+// ==================== AUTH INPUT VALIDATION UTILITIES ====================
+function validateEmailFormat(email) {
+  const re = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
+  return re.test((email || '').trim());
+}
+
+function validatePhoneFormat(phone) {
+  const clean = (phone || '').replace(/\D/g, '');
+  return clean.length === 10;
+}
+
+function validateOtpFormat(otp) {
+  return /^\d{6}$/.test((otp || '').trim());
+}
+
+function setInputValidationState(inputEl, errorId, isValid, errorMessage = '') {
+  if (!inputEl) return isValid;
+  const errorEl = document.getElementById(errorId);
+  if (isValid) {
+    inputEl.classList.remove('border-rose-500', 'focus:border-rose-500');
+    inputEl.classList.add('border-emerald-500', 'focus:border-emerald-400');
+    if (errorEl) {
+      errorEl.classList.add('hidden');
+      const span = errorEl.querySelector('span');
+      if (span) span.innerText = '';
+    }
+  } else {
+    inputEl.classList.remove('border-emerald-500', 'focus:border-emerald-400');
+    inputEl.classList.add('border-rose-500', 'focus:border-rose-500');
+    if (errorEl) {
+      errorEl.classList.remove('hidden');
+      const span = errorEl.querySelector('span');
+      if (span) span.innerText = errorMessage;
+      else errorEl.innerText = errorMessage;
+    }
+  }
+  return isValid;
+}
+
+function handlePhoneInput(input, errorId) {
+  input.value = input.value.replace(/\D/g, '').slice(0, 10);
+  if (input.value.length === 10) {
+    setInputValidationState(input, errorId, true);
+  } else {
+    input.classList.remove('border-emerald-500', 'focus:border-emerald-400', 'border-rose-500', 'focus:border-rose-500');
+    const errorEl = document.getElementById(errorId);
+    if (errorEl) errorEl.classList.add('hidden');
+  }
+}
+
+function handleEmailInput(input, errorId) {
+  const val = input.value.trim();
+  if (validateEmailFormat(val)) {
+    setInputValidationState(input, errorId, true);
+  } else {
+    input.classList.remove('border-emerald-500', 'focus:border-emerald-400', 'border-rose-500', 'focus:border-rose-500');
+    const errorEl = document.getElementById(errorId);
+    if (errorEl) errorEl.classList.add('hidden');
+  }
+}
+
+function handleNameInput(input, errorId) {
+  const val = input.value.trim();
+  if (val.length >= 2) {
+    setInputValidationState(input, errorId, true);
+  } else {
+    input.classList.remove('border-emerald-500', 'focus:border-emerald-400', 'border-rose-500', 'focus:border-rose-500');
+    const errorEl = document.getElementById(errorId);
+    if (errorEl) errorEl.classList.add('hidden');
+  }
+}
+
+function handleOtpInput(input, errorId) {
+  input.value = input.value.replace(/\D/g, '').slice(0, 6);
+  if (input.value.length === 6) {
+    setInputValidationState(input, errorId, true);
+  } else {
+    input.classList.remove('border-emerald-500', 'focus:border-emerald-400', 'border-rose-500', 'focus:border-rose-500');
+    const errorEl = document.getElementById(errorId);
+    if (errorEl) errorEl.classList.add('hidden');
+  }
+}
+
+function handlePasswordInput(input, errorId) {
+  if (input.value.length >= 4) {
+    setInputValidationState(input, errorId, true);
+  } else {
+    input.classList.remove('border-emerald-500', 'focus:border-emerald-400', 'border-rose-500', 'focus:border-rose-500');
+    const errorEl = document.getElementById(errorId);
+    if (errorEl) errorEl.classList.add('hidden');
+  }
+}
+
+function checkPasswordMatch() {
+  const p1 = document.getElementById('forgotNewPasswordInput');
+  const p2 = document.getElementById('forgotConfirmPasswordInput');
+  const err = document.getElementById('forgotPasswordError');
+  if (!p1 || !p2 || !err) return;
+
+  const val1 = p1.value;
+  const val2 = p2.value;
+  const span = err.querySelector('span');
+
+  if (!val1 && !val2) {
+    err.classList.add('hidden');
+    p1.classList.remove('border-emerald-500', 'border-rose-500');
+    p2.classList.remove('border-emerald-500', 'border-rose-500');
+    return;
+  }
+
+  if (val1.length < 6) {
+    err.className = 'text-[11px] mt-1 flex items-center gap-1 font-medium text-amber-400';
+    if (span) span.innerText = 'Password must be at least 6 characters.';
+    err.classList.remove('hidden');
+    return;
+  }
+
+  if (val2.length > 0) {
+    if (val1 === val2) {
+      err.className = 'text-[11px] mt-1 flex items-center gap-1 font-medium text-emerald-400';
+      if (span) span.innerText = '✓ Passwords match perfectly!';
+      err.classList.remove('hidden');
+      p1.classList.add('border-emerald-500');
+      p2.classList.add('border-emerald-500');
+      p2.classList.remove('border-rose-500');
+    } else {
+      err.className = 'text-[11px] mt-1 flex items-center gap-1 font-medium text-rose-400';
+      if (span) span.innerText = 'Passwords do not match yet.';
+      err.classList.remove('hidden');
+      p2.classList.add('border-rose-500');
+      p2.classList.remove('border-emerald-500');
+    }
+  } else {
+    err.classList.add('hidden');
+  }
+}
+
+function togglePasswordVisibility(inputId, btnEl) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  const icon = btnEl.querySelector('i');
+  if (input.type === 'password') {
+    input.type = 'text';
+    if (icon) icon.className = 'fa-solid fa-eye-slash text-amber-400';
+  } else {
+    input.type = 'password';
+    if (icon) icon.className = 'fa-solid fa-eye text-slate-400';
+  }
+}
+
 function backToForgotEmailStep() {
   document.getElementById('forgotStepEmail')?.classList.remove('hidden');
   document.getElementById('forgotStepReset')?.classList.add('hidden');
 }
 
 async function requestPasswordResetOtp() {
-  const email = (document.getElementById('forgotEmailInput')?.value || '').trim().toLowerCase();
-  if (!email || !email.includes('@')) {
-    alert('Please enter a valid email address to receive your password reset code');
+  const emailEl = document.getElementById('forgotEmailInput');
+  const email = (emailEl?.value || '').trim().toLowerCase();
+  if (!validateEmailFormat(email)) {
+    setInputValidationState(emailEl, 'forgotEmailError', false, 'Please enter a valid email address (e.g. name@gmail.com)');
+    emailEl?.focus();
     return;
   }
+  setInputValidationState(emailEl, 'forgotEmailError', true);
 
   try {
     const res = await fetch('/api/auth/forgot-password', {
@@ -2211,6 +2364,7 @@ async function requestPasswordResetOtp() {
 
       showToastNotification(data.message || 'Password reset code sent to your email!');
     } else {
+      setInputValidationState(emailEl, 'forgotEmailError', false, data.error || 'Failed to send password reset code');
       alert(data.error || 'Failed to send password reset code');
     }
   } catch (err) {
@@ -2222,26 +2376,52 @@ function autofillForgotOtp() {
   const code = document.getElementById('forgotDevOtpCode')?.innerText;
   if (code) {
     const otpInput = document.getElementById('forgotOtpInput');
-    if (otpInput) otpInput.value = code;
+    if (otpInput) {
+      otpInput.value = code;
+      handleOtpInput(otpInput, 'forgotOtpError');
+    }
   }
 }
 
 async function submitPasswordReset() {
-  const email = (document.getElementById('forgotEmailInput')?.value || '').trim().toLowerCase();
-  const otp = (document.getElementById('forgotOtpInput')?.value || '').trim();
-  const newPassword = (document.getElementById('forgotNewPasswordInput')?.value || '').trim();
-  const confirmPassword = (document.getElementById('forgotConfirmPasswordInput')?.value || '').trim();
+  const emailEl = document.getElementById('forgotEmailInput');
+  const otpEl = document.getElementById('forgotOtpInput');
+  const newPassEl = document.getElementById('forgotNewPasswordInput');
+  const confirmPassEl = document.getElementById('forgotConfirmPasswordInput');
 
-  if (!otp) {
-    alert('Please enter the 6-digit reset code');
+  const email = (emailEl?.value || '').trim().toLowerCase();
+  const otp = (otpEl?.value || '').replace(/\D/g, '');
+  const newPassword = (newPassEl?.value || '').trim();
+  const confirmPassword = (confirmPassEl?.value || '').trim();
+
+  if (!validateOtpFormat(otp)) {
+    setInputValidationState(otpEl, 'forgotOtpError', false, 'Please enter the 6-digit reset code from your email.');
+    otpEl?.focus();
     return;
   }
+  setInputValidationState(otpEl, 'forgotOtpError', true);
+
   if (!newPassword || newPassword.length < 6) {
-    alert('New password must be at least 6 characters long');
+    const err = document.getElementById('forgotPasswordError');
+    if (err) {
+      err.className = 'text-[11px] mt-1 flex items-center gap-1 font-medium text-rose-400';
+      const span = err.querySelector('span');
+      if (span) span.innerText = 'New password must be at least 6 characters.';
+      err.classList.remove('hidden');
+    }
+    newPassEl?.focus();
     return;
   }
+
   if (newPassword !== confirmPassword) {
-    alert('Passwords do not match. Please re-enter.');
+    const err = document.getElementById('forgotPasswordError');
+    if (err) {
+      err.className = 'text-[11px] mt-1 flex items-center gap-1 font-medium text-rose-400';
+      const span = err.querySelector('span');
+      if (span) span.innerText = 'Passwords do not match. Please re-enter.';
+      err.classList.remove('hidden');
+    }
+    confirmPassEl?.focus();
     return;
   }
 
@@ -2326,21 +2506,36 @@ function selectDesiredRole(role) {
 }
 
 async function requestOtp() {
-  const phone = (document.getElementById('authPhoneInput')?.value || '').trim();
-  const email = (document.getElementById('authEmailInput')?.value || '').trim().toLowerCase();
-  const name = (document.getElementById('authNameInput')?.value || '').trim();
+  const phoneEl = document.getElementById('authPhoneInput');
+  const emailEl = document.getElementById('authEmailInput');
+  const nameEl = document.getElementById('authNameInput');
+
+  const phone = (phoneEl?.value || '').replace(/\D/g, '');
+  const email = (emailEl?.value || '').trim().toLowerCase();
+  const name = (nameEl?.value || '').trim();
   const btn = document.getElementById('btnRequestOtp');
 
-  if (!email || !email.includes('@')) {
-    alert('Please enter a valid email address to receive your verification code');
-    return;
-  }
-  if (!phone || phone.length < 8) {
-    alert('Please enter your 10-digit mobile phone number');
-    return;
+  let isValid = true;
+
+  if (!validatePhoneFormat(phone)) {
+    setInputValidationState(phoneEl, 'authPhoneError', false, 'Please enter a valid 10-digit mobile phone number');
+    phoneEl?.focus();
+    isValid = false;
+  } else {
+    setInputValidationState(phoneEl, 'authPhoneError', true);
   }
 
-  const cleanPhone = phone.startsWith('+') ? phone : (phone.length === 10 ? `+91${phone}` : phone);
+  if (!validateEmailFormat(email)) {
+    setInputValidationState(emailEl, 'authEmailError', false, 'Please enter a valid email address (e.g. player@gmail.com)');
+    if (isValid) emailEl?.focus();
+    isValid = false;
+  } else {
+    setInputValidationState(emailEl, 'authEmailError', true);
+  }
+
+  if (!isValid) return;
+
+  const cleanPhone = `+91${phone}`;
 
   if (btn) {
     btn.disabled = true;
@@ -2379,6 +2574,11 @@ async function requestOtp() {
 
       showToastNotification(data.message || 'Verification code sent to your email inbox!');
     } else {
+      if (data.error && data.error.toLowerCase().includes('email')) {
+        setInputValidationState(emailEl, 'authEmailError', false, data.error);
+      } else if (data.error && data.error.toLowerCase().includes('phone')) {
+        setInputValidationState(phoneEl, 'authPhoneError', false, data.error);
+      }
       alert(data.error || 'Failed to send verification code');
     }
   } catch (err) {
@@ -2402,6 +2602,7 @@ function autofillDevOtp() {
     const inputEl = document.getElementById('authOtpInput');
     if (inputEl) {
       inputEl.value = code;
+      handleOtpInput(inputEl, 'authOtpError');
       inputEl.focus();
     }
   }
@@ -2413,19 +2614,26 @@ function backToPhoneStep() {
 }
 
 async function submitVerifyOtp() {
-  const phone = (document.getElementById('authPhoneInput')?.value || '').trim();
-  const email = (document.getElementById('authEmailInput')?.value || '').trim().toLowerCase();
-  const otp = (document.getElementById('authOtpInput')?.value || '').trim();
-  const name = (document.getElementById('authNameInput')?.value || '').trim();
+  const phoneEl = document.getElementById('authPhoneInput');
+  const emailEl = document.getElementById('authEmailInput');
+  const otpEl = document.getElementById('authOtpInput');
+  const nameEl = document.getElementById('authNameInput');
+
+  const phone = (phoneEl?.value || '').replace(/\D/g, '');
+  const email = (emailEl?.value || '').trim().toLowerCase();
+  const otp = (otpEl?.value || '').replace(/\D/g, '');
+  const name = (nameEl?.value || '').trim();
   const desiredRole = document.getElementById('authDesiredRole')?.value || 'player';
   const btn = document.getElementById('btnVerifyOtp');
 
-  if (!otp) {
-    alert('Please enter the 6-digit verification code from your email');
+  if (!validateOtpFormat(otp)) {
+    setInputValidationState(otpEl, 'authOtpError', false, 'Please enter the complete 6-digit verification code from your email');
+    otpEl?.focus();
     return;
   }
+  setInputValidationState(otpEl, 'authOtpError', true);
 
-  const cleanPhone = phone.startsWith('+') ? phone : (phone.length === 10 ? `+91${phone}` : phone);
+  const cleanPhone = `+91${phone}`;
 
   if (btn) {
     btn.disabled = true;
@@ -2465,6 +2673,7 @@ async function submitVerifyOtp() {
         navigateTo('tournaments');
       }
     } else {
+      setInputValidationState(otpEl, 'authOtpError', false, data.error || 'Invalid verification code');
       alert(data.error || 'Invalid verification code');
     }
   } catch (err) {
@@ -2478,24 +2687,43 @@ async function submitVerifyOtp() {
 }
 
 async function submitSuperAdminLogin() {
-  const phone = (document.getElementById('adminPhoneInput')?.value || '').trim();
-  const email = (document.getElementById('adminEmailInput')?.value || '').trim().toLowerCase();
-  const key = (document.getElementById('adminKeyInput')?.value || '').trim();
+  const phoneEl = document.getElementById('adminPhoneInput');
+  const emailEl = document.getElementById('adminEmailInput');
+  const keyEl = document.getElementById('adminKeyInput');
 
-  if (!phone || phone.length < 8) {
-    alert('Please enter your administrator mobile phone number');
-    return;
-  }
-  if (!email || !email.includes('@')) {
-    alert('Please enter your administrator email address');
-    return;
-  }
-  if (!key) {
-    alert('Please enter your master password');
-    return;
+  const phone = (phoneEl?.value || '').replace(/\D/g, '');
+  const email = (emailEl?.value || '').trim().toLowerCase();
+  const key = (keyEl?.value || '').trim();
+
+  let isValid = true;
+
+  if (!validatePhoneFormat(phone)) {
+    setInputValidationState(phoneEl, 'adminPhoneError', false, 'Please enter administrator 10-digit mobile phone number');
+    phoneEl?.focus();
+    isValid = false;
+  } else {
+    setInputValidationState(phoneEl, 'adminPhoneError', true);
   }
 
-  const cleanPhone = phone.startsWith('+') ? phone : (phone.length === 10 ? `+91${phone}` : phone);
+  if (!validateEmailFormat(email)) {
+    setInputValidationState(emailEl, 'adminEmailError', false, 'Please enter administrator email address');
+    if (isValid) emailEl?.focus();
+    isValid = false;
+  } else {
+    setInputValidationState(emailEl, 'adminEmailError', true);
+  }
+
+  if (!key || key.length < 4) {
+    setInputValidationState(keyEl, 'adminKeyError', false, 'Please enter master password (min. 4 characters)');
+    if (isValid) keyEl?.focus();
+    isValid = false;
+  } else {
+    setInputValidationState(keyEl, 'adminKeyError', true);
+  }
+
+  if (!isValid) return;
+
+  const cleanPhone = `+91${phone}`;
 
   try {
     const res = await fetch('/api/auth/login', {
@@ -2521,6 +2749,7 @@ async function submitSuperAdminLogin() {
       showToastNotification(`👑 Super Admin Signed In: ${currentUser.fullName || 'CarromX Admin'}`);
       navigateTo('superadmin');
     } else {
+      setInputValidationState(keyEl, 'adminKeyError', false, data.error || 'Invalid Super Admin credentials');
       alert(data.error || 'Invalid Super Admin credentials');
     }
   } catch (err) {
