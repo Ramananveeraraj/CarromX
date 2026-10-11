@@ -1,0 +1,10 @@
+node_modules/
+.env
+*.apk
+*.aab
+public/downloads/
+carromx_mobile/build/
+carromx_mobile/.dart_tool/
+carromx_mobile/android/.gradle/
+carromx_mobile/android/key.properties
+*.log

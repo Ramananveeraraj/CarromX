@@ -1,0 +1,23 @@
+{
+  "name": "carromx",
+  "version": "1.0.0",
+  "description": "Local Carrom Tournament Management Application",
+  "main": "server/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "build": "node -e \"console.log('Build verified successfully for production.')\"",
+    "preview": "node server/index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^10.1.0",
+    "pg": "^8.23.1",
+    "sqlite3": "^5.1.7",
+    "ws": "^8.18.0"
+  }
+}

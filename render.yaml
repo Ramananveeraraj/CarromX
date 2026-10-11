@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: carromx-tournament-platform
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: PORT
+        value: 10000
+    disk:
+      name: carromx-data
+      mountPath: /data
+      sizeGB: 1
