@@ -2188,32 +2188,38 @@ function selectDesiredRole(role) {
 }
 
 async function requestOtp() {
-  const rawPhone = document.getElementById('authPhoneInput').value.trim();
+  const rawInput = document.getElementById('authPhoneInput').value.trim();
   const name = document.getElementById('authNameInput').value.trim();
-  if (!rawPhone || rawPhone.length < 5) {
-    alert('Please enter a valid mobile phone number');
+  if (!rawInput || rawInput.length < 3) {
+    alert('Please enter a valid email address or mobile phone number');
     return;
   }
 
-  const phone = rawPhone.startsWith('+') ? rawPhone : `+91${rawPhone}`;
+  const isEmail = rawInput.includes('@');
+  const target = isEmail ? rawInput.toLowerCase() : (rawInput.startsWith('+') ? rawInput : (rawInput.length === 10 ? `+91${rawInput}` : rawInput));
 
   try {
     const res = await fetch('/api/auth/send-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phoneNumber: phone, fullName: name })
+      body: JSON.stringify({
+        identifier: target,
+        email: isEmail ? target : undefined,
+        phoneNumber: !isEmail ? target : undefined,
+        fullName: name
+      })
     });
     const data = await res.json();
     if (res.ok) {
       document.getElementById('authStepPhone').classList.add('hidden');
       document.getElementById('authStepOtp').classList.remove('hidden');
       const targetPhoneEl = document.getElementById('otpTargetPhone');
-      if (targetPhoneEl) targetPhoneEl.innerText = phone;
+      if (targetPhoneEl) targetPhoneEl.innerText = target;
       if (data.devOtp) {
         document.getElementById('devOtpCode').innerText = data.devOtp;
       }
     } else {
-      alert(data.error);
+      alert(data.error || 'Failed to send verification code');
     }
   } catch (err) {
     alert(err.message);
@@ -2231,18 +2237,26 @@ function backToPhoneStep() {
 }
 
 async function submitVerifyOtp() {
-  const rawPhone = document.getElementById('authPhoneInput').value.trim();
-  const phone = rawPhone.startsWith('+') ? rawPhone : `+91${rawPhone}`;
+  const rawInput = document.getElementById('authPhoneInput').value.trim();
+  const isEmail = rawInput.includes('@');
+  const target = isEmail ? rawInput.toLowerCase() : (rawInput.startsWith('+') ? rawInput : (rawInput.length === 10 ? `+91${rawInput}` : rawInput));
   const otp = document.getElementById('authOtpInput').value.trim();
   const name = document.getElementById('authNameInput').value.trim();
   const desiredRole = document.getElementById('authDesiredRole')?.value || 'player';
+
+  if (!otp) {
+    alert('Please enter the 6-digit verification code');
+    return;
+  }
 
   try {
     const res = await fetch('/api/auth/verify-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        phoneNumber: phone,
+        identifier: target,
+        email: isEmail ? target : undefined,
+        phoneNumber: !isEmail ? target : undefined,
         otp,
         fullName: name,
         desiredRole

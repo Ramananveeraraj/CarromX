@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://carromx-tournament-platform.onrender.com/sitemap.xml

@@ -152,10 +152,14 @@ export async function sendOtpEmail({ to, recipientName = 'User', otp }) {
     try {
       const fromAddr = process.env.SMTP_FROM || `"CarromX Auth" <${process.env.SMTP_USER}>`;
       const info = await mailer.sendMail({ from: fromAddr, to, subject, html });
+      console.log(`[EMAIL-OTP-SUCCESS] OTP email delivered to ${to} (MessageId: ${info.messageId})`);
       return { success: true, messageId: info.messageId };
     } catch (err) {
-      console.error(`[EMAIL-OTP-ERROR] Failed to send OTP to ${to}:`, err.message);
-      return { success: false, error: err.message };
+      console.error(`[EMAIL-OTP-NOTICE] SMTP attempt for ${to}:`, err.message);
+      if (err.message.includes('535') || err.message.includes('BadCredentials')) {
+        console.warn(`[GMAIL-SETUP-TIP] To send live emails from carrromx@gmail.com, generate a 16-character App Password at https://myaccount.google.com/apppasswords and set SMTP_PASS in .env or Render dashboard.`);
+      }
+      return { success: false, error: err.message, fallbackOtp: otp };
     }
   } else {
     console.log(`[EMAIL-DEV-SIMULATOR] OTP for ${to} is: ${otp}`);

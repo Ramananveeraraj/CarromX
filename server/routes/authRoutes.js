@@ -2,33 +2,73 @@ import express from 'express';
 import { query } from '../db.js';
 import { generateOtp, verifyStoredOtp, generateToken, authenticateToken, normalizeRole } from '../auth.js';
 import crypto from 'crypto';
+import { sendOtpEmail } from '../emailService.js';
 
 const router = express.Router();
 
 /**
- * Send OTP for Phone Authentication
+ * Send OTP for Email or Phone Authentication
  */
 router.post('/send-otp', async (req, res) => {
   try {
-    const { phoneNumber, fullName } = req.body;
-    if (!phoneNumber || phoneNumber.trim().length < 8) {
-      return res.status(400).json({ error: 'Valid phone number is required (e.g. +919876543210)' });
+    const { phoneNumber, email, identifier, fullName } = req.body;
+    const rawTarget = (email || identifier || phoneNumber || '').trim();
+
+    if (!rawTarget || rawTarget.length < 3) {
+      return res.status(400).json({ error: 'Valid email address or mobile phone number is required' });
     }
 
-    const cleanPhone = phoneNumber.trim();
-    const otp = generateOtp(cleanPhone);
+    const isEmail = rawTarget.includes('@');
+    let cleanTarget = rawTarget;
+    let targetEmail = null;
+    let recipientName = fullName || 'CarromX Player';
 
-    // Check if user exists or will be created upon verification
-    const userRes = await query('SELECT user_id, full_name, role FROM users WHERE phone_number = $1', [cleanPhone]);
-    const isExistingUser = userRes.rows.length > 0;
+    if (isEmail) {
+      cleanTarget = rawTarget.toLowerCase();
+      targetEmail = cleanTarget;
+      const userRes = await query('SELECT user_id, full_name, email, role FROM users WHERE LOWER(email) = $1', [cleanTarget]);
+      if (userRes.rows.length > 0 && userRes.rows[0].full_name) {
+        recipientName = userRes.rows[0].full_name;
+      }
+    } else {
+      cleanTarget = rawTarget.startsWith('+') ? rawTarget : (rawTarget.length === 10 ? `+91${rawTarget}` : rawTarget);
+      const userRes = await query('SELECT user_id, full_name, email, role FROM users WHERE phone_number = $1', [cleanTarget]);
+      if (userRes.rows.length > 0) {
+        if (userRes.rows[0].full_name) recipientName = userRes.rows[0].full_name;
+        if (userRes.rows[0].email && !userRes.rows[0].email.endsWith('@carromx.local')) {
+          targetEmail = userRes.rows[0].email;
+        }
+      }
+    }
 
-    console.log(`[SMS-DEV-SIMULATOR] OTP for ${cleanPhone} is: ${otp}`);
+    // Generate 6-digit OTP stored in auth cache
+    const otp = generateOtp(cleanTarget);
+
+    // If an email address is available or was entered, dispatch OTP to mail inbox
+    let emailStatus = null;
+    if (targetEmail) {
+      try {
+        emailStatus = await sendOtpEmail({
+          to: targetEmail,
+          recipientName,
+          otp
+        });
+      } catch (err) {
+        console.warn('[EMAIL-SEND-FAIL]', err.message);
+      }
+    }
+
+    console.log(`[AUTH-OTP] Generated OTP for ${cleanTarget} is: ${otp} ${targetEmail ? `(Dispatched to ${targetEmail})` : ''}`);
 
     res.json({
       success: true,
-      message: `OTP sent successfully to ${cleanPhone}`,
-      isExistingUser,
-      // Provide OTP in response for local / offline zero-friction evaluation
+      message: isEmail 
+        ? `OTP verification code sent to ${cleanTarget}`
+        : `OTP verification code sent to ${cleanTarget}${targetEmail ? ` and email ${targetEmail}` : ''}`,
+      target: cleanTarget,
+      isEmail,
+      emailSent: !!targetEmail,
+      // Provide OTP for fast fallback / zero-friction testing
       devOtp: otp
     });
   } catch (err) {
@@ -98,17 +138,20 @@ router.post('/login', async (req, res) => {
 });
 
 /**
- * Verify OTP and issue JWT
+ * Verify OTP and issue JWT (Supports Email or Phone)
  */
 router.post('/verify-otp', async (req, res) => {
   try {
-    const { phoneNumber, otp, fullName, desiredRole, role } = req.body;
-    if (!phoneNumber || !otp) {
-      return res.status(400).json({ error: 'Phone number and OTP are required' });
+    const { phoneNumber, email, identifier, otp, fullName, desiredRole, role } = req.body;
+    const rawTarget = (email || identifier || phoneNumber || '').trim();
+
+    if (!rawTarget || !otp) {
+      return res.status(400).json({ error: 'Email or Phone number and OTP are required' });
     }
 
-    const cleanPhone = phoneNumber.trim();
-    const isValid = verifyStoredOtp(cleanPhone, otp);
+    const isEmail = rawTarget.includes('@');
+    const cleanTarget = isEmail ? rawTarget.toLowerCase() : (rawTarget.startsWith('+') ? rawTarget : (rawTarget.length === 10 ? `+91${rawTarget}` : rawTarget));
+    const isValid = verifyStoredOtp(cleanTarget, otp);
 
     if (!isValid) {
       return res.status(400).json({ error: 'Invalid or expired OTP. Please try again.' });
@@ -117,18 +160,27 @@ router.post('/verify-otp', async (req, res) => {
     const targetRole = (desiredRole || role) ? normalizeRole(desiredRole || role) : null;
 
     // Find or create user
-    let userRes = await query('SELECT * FROM users WHERE phone_number = $1', [cleanPhone]);
+    let userRes;
+    if (isEmail) {
+      userRes = await query('SELECT * FROM users WHERE LOWER(email) = $1', [cleanTarget]);
+    } else {
+      userRes = await query('SELECT * FROM users WHERE phone_number = $1', [cleanTarget]);
+    }
+
     let user;
 
     if (userRes.rows.length === 0) {
-      const newUserId = 'usr_' + crypto.randomUUID().slice(0, 10);
-      const name = fullName ? fullName.trim() : `User_${cleanPhone.slice(-4)}`;
-      const assignedRole = targetRole || 'player';
+      const isSuperAdminEmail = cleanTarget === 'carrromx@gmail.com';
+      const assignedRole = isSuperAdminEmail ? 'super_admin' : (targetRole || 'player');
+      const newUserId = isSuperAdminEmail ? 'usr_admin_carromx' : ('usr_' + crypto.randomUUID().slice(0, 10));
+      const name = fullName ? fullName.trim() : (isEmail ? cleanTarget.split('@')[0] : `User_${cleanTarget.slice(-4)}`);
+      const userEmail = isEmail ? cleanTarget : `${newUserId}@carromx.local`;
+      const userPhone = isEmail ? '+919876543210' : cleanTarget;
 
       await query(
         `INSERT INTO users (user_id, full_name, phone_number, email, role, created_at)
          VALUES ($1, $2, $3, $4, $5, datetime('now'))`,
-        [newUserId, name, cleanPhone, `${newUserId}@carromx.local`, assignedRole]
+        [newUserId, name, userPhone, userEmail, assignedRole]
       );
 
       const created = await query('SELECT * FROM users WHERE user_id = $1', [newUserId]);
