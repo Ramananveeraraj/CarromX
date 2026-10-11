@@ -143,6 +143,43 @@ class ApiService extends ChangeNotifier {
     } catch (e) {
       debugPrint('Verify OTP error: $e');
     }
+  Future<Map<String, dynamic>> forgotPassword(String email) async {
+    final res = await http.post(
+      Uri.parse('$_baseUrl/api/auth/forgot-password'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email}),
+    );
+    return jsonDecode(res.body);
+  }
+
+  Future<bool> resetPassword(String email, String otp, String newPassword) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$_baseUrl/api/auth/reset-password'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email,
+          'otp': otp,
+          'newPassword': newPassword,
+        }),
+      );
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        _token = data['token'];
+        _currentUser = User.fromJson(data['user']);
+        _activeRole = _currentUser?.role ?? 'super_admin';
+
+        final prefs = await SharedPreferences.getInstance();
+        if (_token != null) await prefs.setString('auth_token', _token!);
+        await prefs.setString('active_role', _activeRole);
+        await prefs.setString('user_profile', jsonEncode(data['user']));
+
+        notifyListeners();
+        return true;
+      }
+    } catch (e) {
+      debugPrint('Reset password error: $e');
+    }
     return false;
   }
 

@@ -72,6 +72,112 @@ class _LoginDialogState extends State<LoginDialog> {
     }
   }
 
+  Future<void> _showForgotPasswordDialog() async {
+    final resetEmailController = TextEditingController(text: _emailController.text.trim());
+    final resetOtpController = TextEditingController();
+    final resetPassController = TextEditingController();
+    bool codeSent = false;
+    String devCode = '';
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: const Color(0xFF062B20),
+          title: const Text('Password Recovery', style: TextStyle(color: Color(0xFFFBBF24), fontSize: 16, fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!codeSent) ...[
+                  const Text('Enter your registered email address to receive a 6-digit recovery code:', style: TextStyle(color: Color(0xFFA7F3D0), fontSize: 12)),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: resetEmailController,
+                    keyboardType: TextInputType.emailAddress,
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    decoration: InputDecoration(
+                      labelText: 'Registered Email',
+                      labelStyle: const TextStyle(color: Color(0xFFA7F3D0)),
+                      filled: true,
+                      fillColor: const Color(0xFF021A13),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF59E0B)),
+                    onPressed: () async {
+                      final email = resetEmailController.text.trim();
+                      if (email.isEmpty) return;
+                      final res = await _api.forgotPassword(email);
+                      setDialogState(() {
+                        codeSent = true;
+                        devCode = res['devOtp'] ?? '';
+                        resetOtpController.text = devCode;
+                      });
+                    },
+                    child: const Text('Send Reset Code', style: TextStyle(color: Color(0xFF021A13), fontWeight: FontWeight.bold)),
+                  ),
+                ] else ...[
+                  const Text('Enter the 6-digit code sent to your email and your new password:', style: TextStyle(color: Color(0xFFA7F3D0), fontSize: 12)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: resetOtpController,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    decoration: InputDecoration(
+                      labelText: '6-digit Reset Code',
+                      labelStyle: const TextStyle(color: Color(0xFFA7F3D0)),
+                      filled: true,
+                      fillColor: const Color(0xFF021A13),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: resetPassController,
+                    obscureText: true,
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    decoration: InputDecoration(
+                      labelText: 'New Password (min 6 chars)',
+                      labelStyle: const TextStyle(color: Color(0xFFA7F3D0)),
+                      filled: true,
+                      fillColor: const Color(0xFF021A13),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981)),
+                    onPressed: () async {
+                      final ok = await _api.resetPassword(
+                        resetEmailController.text.trim(),
+                        resetOtpController.text.trim(),
+                        resetPassController.text.trim(),
+                      );
+                      if (ok && mounted) {
+                        Navigator.pop(ctx);
+                        Navigator.pop(context, true);
+                      }
+                    },
+                    child: const Text('Reset & Sign In', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
@@ -196,6 +302,13 @@ class _LoginDialogState extends State<LoginDialog> {
                 ),
               ),
             ],
+            const SizedBox(height: 8),
+            Center(
+              child: TextButton(
+                onPressed: _showForgotPasswordDialog,
+                child: const Text('Forgot Password or Need Access Reset?', style: TextStyle(color: Color(0xFFFBBF24), fontSize: 11, decoration: TextDecoration.underline)),
+              ),
+            ),
           ],
         ),
       ),

@@ -2126,6 +2126,9 @@ function switchAuthPortalTab(tab) {
   const btnAdmin = document.getElementById('authTabBtnAdmin');
   const panelRegular = document.getElementById('authPanelRegular');
   const panelAdmin = document.getElementById('authPanelAdmin');
+  const panelForgot = document.getElementById('authPanelForgotPassword');
+
+  panelForgot?.classList.add('hidden');
 
   if (tab === 'regular') {
     btnRegular?.classList.add('bg-amber-600', 'text-white', 'shadow');
@@ -2141,6 +2144,141 @@ function switchAuthPortalTab(tab) {
     btnRegular?.classList.add('text-slate-400');
     panelAdmin?.classList.remove('hidden');
     panelRegular?.classList.add('hidden');
+  }
+}
+
+/**
+ * Forgot Password Flow Handlers
+ */
+function openForgotPasswordView() {
+  const panelRegular = document.getElementById('authPanelRegular');
+  const panelAdmin = document.getElementById('authPanelAdmin');
+  const panelForgot = document.getElementById('authPanelForgotPassword');
+  const forgotStepEmail = document.getElementById('forgotStepEmail');
+  const forgotStepReset = document.getElementById('forgotStepReset');
+
+  panelRegular?.classList.add('hidden');
+  panelAdmin?.classList.add('hidden');
+  panelForgot?.classList.remove('hidden');
+
+  forgotStepEmail?.classList.remove('hidden');
+  forgotStepReset?.classList.add('hidden');
+
+  const emailVal = document.getElementById('authEmailInput')?.value || document.getElementById('adminPhoneInput')?.value || '';
+  if (emailVal && emailVal.includes('@')) {
+    const forgotEmail = document.getElementById('forgotEmailInput');
+    if (forgotEmail) forgotEmail.value = emailVal;
+  }
+}
+
+function backToLoginView() {
+  const panelForgot = document.getElementById('authPanelForgotPassword');
+  panelForgot?.classList.add('hidden');
+  switchAuthPortalTab('admin');
+}
+
+function backToForgotEmailStep() {
+  document.getElementById('forgotStepEmail')?.classList.remove('hidden');
+  document.getElementById('forgotStepReset')?.classList.add('hidden');
+}
+
+async function requestPasswordResetOtp() {
+  const email = (document.getElementById('forgotEmailInput')?.value || '').trim().toLowerCase();
+  if (!email || !email.includes('@')) {
+    alert('Please enter a valid email address to receive your password reset code');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/auth/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      document.getElementById('forgotStepEmail')?.classList.add('hidden');
+      document.getElementById('forgotStepReset')?.classList.remove('hidden');
+      const targetEl = document.getElementById('forgotTargetEmailDisplay');
+      if (targetEl) targetEl.innerText = data.targetEmail || email;
+
+      if (data.devOtp) {
+        const helperEl = document.getElementById('forgotDevHelper');
+        const codeEl = document.getElementById('forgotDevOtpCode');
+        if (codeEl) codeEl.innerText = data.devOtp;
+        if (helperEl) helperEl.classList.remove('hidden');
+      }
+
+      showToastNotification(data.message || 'Password reset code sent to your email!');
+    } else {
+      alert(data.error || 'Failed to send password reset code');
+    }
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+function autofillForgotOtp() {
+  const code = document.getElementById('forgotDevOtpCode')?.innerText;
+  if (code) {
+    const otpInput = document.getElementById('forgotOtpInput');
+    if (otpInput) otpInput.value = code;
+  }
+}
+
+async function submitPasswordReset() {
+  const email = (document.getElementById('forgotEmailInput')?.value || '').trim().toLowerCase();
+  const otp = (document.getElementById('forgotOtpInput')?.value || '').trim();
+  const newPassword = (document.getElementById('forgotNewPasswordInput')?.value || '').trim();
+  const confirmPassword = (document.getElementById('forgotConfirmPasswordInput')?.value || '').trim();
+
+  if (!otp) {
+    alert('Please enter the 6-digit reset code');
+    return;
+  }
+  if (!newPassword || newPassword.length < 6) {
+    alert('New password must be at least 6 characters long');
+    return;
+  }
+  if (newPassword !== confirmPassword) {
+    alert('Passwords do not match. Please re-enter.');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/auth/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email,
+        otp,
+        newPassword
+      })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      currentToken = data.token;
+      currentUser = data.user;
+      activeRole = currentUser.role || 'super_admin';
+      localStorage.setItem('carromx_token', currentToken);
+      localStorage.setItem('carromx_role', activeRole);
+      closeAuthModal();
+      updateHeaderProfile();
+      playStrikerSound();
+      showToastNotification(data.message || 'Password reset successfully! Welcome!');
+
+      if (activeRole === 'super_admin' || activeRole === 'help_desk') {
+        navigateTo('superadmin');
+      } else if (activeRole === 'organizer' || activeRole === 'organiser') {
+        navigateTo('organizer');
+      } else {
+        navigateTo('tournaments');
+      }
+    } else {
+      alert(data.error || 'Failed to reset password');
+    }
+  } catch (err) {
+    alert(err.message);
   }
 }
 

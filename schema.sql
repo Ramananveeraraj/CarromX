@@ -19,6 +19,7 @@ CREATE TABLE users (
     full_name VARCHAR(150) NOT NULL,
     phone_number VARCHAR(20) NOT NULL UNIQUE,
     email VARCHAR(150),
+    password_hash VARCHAR(255),
     role VARCHAR(50) DEFAULT 'player', -- dynamic role capability: 'player', 'organizer', 'referee', 'help_desk'
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

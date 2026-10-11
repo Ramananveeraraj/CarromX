@@ -167,3 +167,40 @@ export async function sendOtpEmail({ to, recipientName = 'User', otp }) {
     return { success: true, simulated: true };
   }
 }
+
+/**
+ * Send Password Reset OTP Email
+ */
+export async function sendPasswordResetEmail({ to, recipientName = 'User', otp }) {
+  if (!to) return { success: false, reason: 'No email provided' };
+
+  const mailer = getTransporter();
+  const subject = `🔑 Reset Your CarromX Password: Code ${otp}`;
+  const html = `
+    <div style="font-family: sans-serif; background: #031c15; color: #f0fdf4; padding: 24px; border-radius: 12px; max-width: 450px; margin: auto;">
+      <h2 style="color: #fbbf24; margin-top: 0;">CarromX Password Reset</h2>
+      <p style="color: #d1fae5;">Hello ${recipientName},</p>
+      <p style="color: #d1fae5;">We received a request to reset your password or master access credentials. Use the 6-digit recovery code below to proceed:</p>
+      <div style="background: #021a13; border: 2px dashed #f59e0b; padding: 16px; text-align: center; border-radius: 8px; margin: 20px 0;">
+        <span style="font-size: 32px; font-weight: 900; letter-spacing: 6px; color: #fbbf24;">${otp}</span>
+      </div>
+      <p style="font-size: 12px; color: #6ee7b7;">This code expires in 10 minutes. If you did not request this password reset, your account is safe and you can ignore this email.</p>
+    </div>
+  `;
+
+  if (mailer) {
+    try {
+      const fromAddr = process.env.SMTP_FROM || `"CarromX Security" <${process.env.SMTP_USER}>`;
+      const info = await mailer.sendMail({ from: fromAddr, to, subject, html });
+      console.log(`[PASSWORD-RESET-EMAIL-SUCCESS] Reset email delivered to ${to} (MessageId: ${info.messageId})`);
+      return { success: true, messageId: info.messageId };
+    } catch (err) {
+      console.error(`[PASSWORD-RESET-EMAIL-FAIL] Failed to send to ${to}:`, err.message);
+      return { success: false, error: err.message, fallbackOtp: otp };
+    }
+  } else {
+    console.log(`[EMAIL-DEV-SIMULATOR] Password reset OTP for ${to} is: ${otp}`);
+    return { success: true, simulated: true };
+  }
+}
+

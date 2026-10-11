@@ -89,10 +89,15 @@ export async function initDb() {
         full_name TEXT NOT NULL,
         phone_number TEXT NOT NULL UNIQUE,
         email TEXT,
+        password_hash TEXT,
         role TEXT DEFAULT 'player',
         created_at TEXT DEFAULT (datetime('now'))
       );
     `);
+
+    try {
+      await query('ALTER TABLE users ADD COLUMN password_hash TEXT');
+    } catch (_) {}
 
     await query(`
       CREATE TABLE IF NOT EXISTS tournaments (
