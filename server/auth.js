@@ -10,45 +10,89 @@ const otpStore = new Map();
 /**
  * Generate and store a 6-digit OTP for an identifier (phone or email)
  */
-export function generateOtp(identifier) {
+export async function generateOtp(identifier) {
   const cleanKey = identifier.trim().toLowerCase();
   // Standard 6-digit numeric OTP
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
-  otpStore.set(cleanKey, { otp, expiresAt });
+  await storeOtpForKeys([cleanKey], otp);
   return otp;
 }
 
 /**
  * Store same OTP across multiple keys (e.g. both email and phone number)
+ * Persisted in memory and in the database so it survives server restarts & multiple workers!
  */
-export function storeOtpForKeys(keys, otp) {
+export async function storeOtpForKeys(keys, otp) {
   const expiresAt = Date.now() + 10 * 60 * 1000;
   for (const k of keys) {
     if (k) {
-      otpStore.set(k.trim().toLowerCase(), { otp, expiresAt });
+      const cleanKey = k.trim().toLowerCase();
+      otpStore.set(cleanKey, { otp, expiresAt });
+      try {
+        await query(
+          `INSERT INTO otp_verifications (identifier, otp_code, expires_at)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (identifier) DO UPDATE SET otp_code = EXCLUDED.otp_code, expires_at = EXCLUDED.expires_at`,
+          [cleanKey, otp, expiresAt]
+        );
+      } catch (err) {
+        try {
+          await query(
+            `INSERT OR REPLACE INTO otp_verifications (identifier, otp_code, expires_at) VALUES ($1, $2, $3)`,
+            [cleanKey, otp, expiresAt]
+          );
+        } catch (_) {}
+      }
     }
   }
 }
 
 /**
- * Verify OTP
+ * Verify OTP with memory and database fallback
  */
-export function verifyStoredOtp(phoneNumber, inputOtp) {
-  const cleanPhone = phoneNumber.trim();
-  // Allow master passwords '123456' or 'Ramanan@03' for instant access
-  if (inputOtp === '123456' || inputOtp === 'Ramanan@03') return true;
+export async function verifyStoredOtp(phoneNumber, inputOtp) {
+  if (!phoneNumber || !inputOtp) return false;
+  const cleanTarget = phoneNumber.trim().toLowerCase();
+  const cleanInput = inputOtp.trim();
 
-  const record = otpStore.get(cleanPhone);
-  if (!record) return false;
-  if (Date.now() > record.expiresAt) {
-    otpStore.delete(cleanPhone);
-    return false;
+  // Allow master passwords '123456' or 'Ramanan@03' for instant zero-friction bypass
+  if (cleanInput === '123456' || cleanInput === 'Ramanan@03') return true;
+
+  // 1. Check in-memory store
+  const record = otpStore.get(cleanTarget);
+  if (record) {
+    if (Date.now() <= record.expiresAt && record.otp === cleanInput) {
+      otpStore.delete(cleanTarget);
+      query('DELETE FROM otp_verifications WHERE LOWER(identifier) = $1', [cleanTarget]).catch(() => {});
+      return true;
+    }
+    if (Date.now() > record.expiresAt) {
+      otpStore.delete(cleanTarget);
+    }
   }
-  if (record.otp === inputOtp.trim()) {
-    otpStore.delete(cleanPhone);
-    return true;
+
+  // 2. Persistent database fallback (survives container restarts)
+  try {
+    const dbRes = await query(
+      'SELECT otp_code, expires_at FROM otp_verifications WHERE LOWER(identifier) = $1',
+      [cleanTarget]
+    );
+    if (dbRes.rows.length > 0) {
+      const { otp_code, expires_at } = dbRes.rows[0];
+      const expTime = Number(expires_at);
+      if (Date.now() <= expTime && otp_code === cleanInput) {
+        await query('DELETE FROM otp_verifications WHERE LOWER(identifier) = $1', [cleanTarget]);
+        otpStore.delete(cleanTarget);
+        return true;
+      }
+      if (Date.now() > expTime) {
+        await query('DELETE FROM otp_verifications WHERE LOWER(identifier) = $1', [cleanTarget]);
+      }
+    }
+  } catch (e) {
+    console.warn('Persistent OTP verification error:', e.message);
   }
+
   return false;
 }
 

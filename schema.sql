@@ -1,21 +1,10 @@
 -- ============================================================
 -- CarromX: Local Carrom Tournament Management Platform
--- Mandatory PostgreSQL Schema Definition
+-- Mandatory PostgreSQL Schema Definition (Safe & Non-Destructive)
 -- ============================================================
 
--- Drop tables if existing (in reverse dependency order)
-DROP TABLE IF EXISTS tournament_officials CASCADE;
-DROP TABLE IF EXISTS match_scores CASCADE;
-DROP TABLE IF EXISTS match_officials CASCADE;
-DROP TABLE IF EXISTS match_fixtures CASCADE;
-DROP TABLE IF EXISTS boards CASCADE;
-DROP TABLE IF EXISTS participants CASCADE;
-DROP TABLE IF EXISTS tournaments CASCADE;
-DROP TABLE IF EXISTS notification_logs CASCADE;
-DROP TABLE IF EXISTS users CASCADE;
-
 -- 1. users Table
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     user_id VARCHAR(64) PRIMARY KEY,
     full_name VARCHAR(150) NOT NULL,
     phone_number VARCHAR(20) NOT NULL UNIQUE,
@@ -28,7 +17,7 @@ CREATE TABLE users (
 -- 2. tournaments Table
 -- Format ENUM: 'knockout', 'round_robin', 'double_elimination'
 -- Status ENUM: 'pending_verification', 'published', 'ongoing', 'completed'
-CREATE TABLE tournaments (
+CREATE TABLE IF NOT EXISTS tournaments (
     tournament_id VARCHAR(64) PRIMARY KEY,
     organizer_id VARCHAR(64) NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
     title VARCHAR(200) NOT NULL,
@@ -49,7 +38,7 @@ CREATE TABLE tournaments (
 
 -- 3. participants Table
 -- Payment Status ENUM: 'pending', 'approved', 'rejected'
-CREATE TABLE participants (
+CREATE TABLE IF NOT EXISTS participants (
     participant_id VARCHAR(64) PRIMARY KEY,
     tournament_id VARCHAR(64) NOT NULL REFERENCES tournaments(tournament_id) ON DELETE CASCADE,
     user_id VARCHAR(64) NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
@@ -61,7 +50,7 @@ CREATE TABLE participants (
 );
 
 -- 4. boards Table
-CREATE TABLE boards (
+CREATE TABLE IF NOT EXISTS boards (
     board_id VARCHAR(64) PRIMARY KEY,
     tournament_id VARCHAR(64) NOT NULL REFERENCES tournaments(tournament_id) ON DELETE CASCADE,
     board_number INT NOT NULL,
@@ -71,7 +60,7 @@ CREATE TABLE boards (
 
 -- 5. match_fixtures Table
 -- Match Status ENUM: 'scheduled', 'live', 'completed', 'disputed'
-CREATE TABLE match_fixtures (
+CREATE TABLE IF NOT EXISTS match_fixtures (
     fixture_id VARCHAR(64) PRIMARY KEY,
     tournament_id VARCHAR(64) NOT NULL REFERENCES tournaments(tournament_id) ON DELETE CASCADE,
     round_number INT NOT NULL,
@@ -84,7 +73,7 @@ CREATE TABLE match_fixtures (
 );
 
 -- 6. match_officials Table (Referees)
-CREATE TABLE match_officials (
+CREATE TABLE IF NOT EXISTS match_officials (
     assignment_id VARCHAR(64) PRIMARY KEY,
     fixture_id VARCHAR(64) NOT NULL REFERENCES match_fixtures(fixture_id) ON DELETE CASCADE,
     referee_user_id VARCHAR(64) NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
@@ -93,7 +82,7 @@ CREATE TABLE match_officials (
 );
 
 -- 7. match_scores Table
-CREATE TABLE match_scores (
+CREATE TABLE IF NOT EXISTS match_scores (
     score_id VARCHAR(64) PRIMARY KEY,
     fixture_id VARCHAR(64) NOT NULL REFERENCES match_fixtures(fixture_id) ON DELETE CASCADE,
     set_number INT NOT NULL,
@@ -107,7 +96,7 @@ CREATE TABLE match_scores (
 );
 
 -- 8. notification_logs Table (Tracks 10-minute pre-match push notification dispatch)
-CREATE TABLE notification_logs (
+CREATE TABLE IF NOT EXISTS notification_logs (
     notification_id VARCHAR(64) PRIMARY KEY,
     fixture_id VARCHAR(64) NOT NULL REFERENCES match_fixtures(fixture_id) ON DELETE CASCADE,
     user_id VARCHAR(64) NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
@@ -121,7 +110,7 @@ CREATE TABLE notification_logs (
 );
 
 -- 9. tournament_officials Table (Umpires, Referees, and Co-Organisers)
-CREATE TABLE tournament_officials (
+CREATE TABLE IF NOT EXISTS tournament_officials (
     official_id VARCHAR(64) PRIMARY KEY,
     tournament_id VARCHAR(64) NOT NULL REFERENCES tournaments(tournament_id) ON DELETE CASCADE,
     user_id VARCHAR(64) NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
@@ -131,16 +120,25 @@ CREATE TABLE tournament_officials (
     CONSTRAINT uq_tournament_official UNIQUE (tournament_id, user_id, official_role)
 );
 
+-- 10. otp_verifications Table (Persistent OTP storage across server restarts and workers)
+CREATE TABLE IF NOT EXISTS otp_verifications (
+    identifier VARCHAR(150) PRIMARY KEY,
+    otp_code VARCHAR(10) NOT NULL,
+    expires_at BIGINT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes for optimal lookup performance
-CREATE INDEX idx_tournaments_organizer ON tournaments(organizer_id);
-CREATE INDEX idx_tournaments_status ON tournaments(status);
-CREATE INDEX idx_participants_tournament ON participants(tournament_id);
-CREATE INDEX idx_fixtures_tournament ON match_fixtures(tournament_id);
-CREATE INDEX idx_fixtures_scheduled_time ON match_fixtures(scheduled_start_time);
-CREATE INDEX idx_scores_fixture ON match_scores(fixture_id);
-CREATE INDEX idx_officials_fixture ON match_officials(fixture_id);
-CREATE INDEX idx_officials_referee ON match_officials(referee_user_id);
-CREATE INDEX idx_tournament_officials_tour ON tournament_officials(tournament_id);
-CREATE INDEX idx_tournament_officials_user ON tournament_officials(user_id);
-CREATE INDEX idx_notif_fixture_user ON notification_logs(fixture_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_tournaments_organizer ON tournaments(organizer_id);
+CREATE INDEX IF NOT EXISTS idx_tournaments_status ON tournaments(status);
+CREATE INDEX IF NOT EXISTS idx_participants_tournament ON participants(tournament_id);
+CREATE INDEX IF NOT EXISTS idx_fixtures_tournament ON match_fixtures(tournament_id);
+CREATE INDEX IF NOT EXISTS idx_fixtures_scheduled_time ON match_fixtures(scheduled_start_time);
+CREATE INDEX IF NOT EXISTS idx_scores_fixture ON match_scores(fixture_id);
+CREATE INDEX IF NOT EXISTS idx_officials_fixture ON match_officials(fixture_id);
+CREATE INDEX IF NOT EXISTS idx_officials_referee ON match_officials(referee_user_id);
+CREATE INDEX IF NOT EXISTS idx_tournament_officials_tour ON tournament_officials(tournament_id);
+CREATE INDEX IF NOT EXISTS idx_tournament_officials_user ON tournament_officials(user_id);
+CREATE INDEX IF NOT EXISTS idx_notif_fixture_user ON notification_logs(fixture_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_otp_expires ON otp_verifications(expires_at);
 

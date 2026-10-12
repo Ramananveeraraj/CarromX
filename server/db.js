@@ -39,7 +39,7 @@ export async function query(sql, params = []) {
       pgSql = sql.replace(/\?/g, () => `$${paramIndex++}`);
     }
     // Universal SQLite-to-PostgreSQL syntax compatibility:
-    pgSql = pgSql.replace(/datetime\('now'\)/gi, 'CURRENT_TIMESTAMP');
+    pgSql = pgSql.replace(/datetime\([^)]*\)/gi, 'CURRENT_TIMESTAMP').replace(/date\('now'\)/gi, 'CURRENT_DATE');
     const res = await dbClient.query(pgSql, params);
     return { rows: res.rows, rowCount: res.rowCount };
   } else {
@@ -268,6 +268,16 @@ export async function initDb() {
     } catch (migErr) {
       console.warn('Migration helper notice:', migErr.message);
     }
+
+    // OTP verification persistence (Survives server restarts and workers)
+    await query(`
+      CREATE TABLE IF NOT EXISTS otp_verifications (
+        identifier TEXT PRIMARY KEY,
+        otp_code TEXT NOT NULL,
+        expires_at INTEGER NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
 
     console.log('SQLite database schema initialized.');
   }

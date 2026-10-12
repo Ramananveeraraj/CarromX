@@ -82,9 +82,9 @@ router.post('/send-otp', async (req, res) => {
 
     // Primary key for OTP generation
     const primaryKey = targetEmail || cleanPhone;
-    const otp = generateOtp(primaryKey);
+    const otp = await generateOtp(primaryKey);
     // Also store for secondary key so verify-otp works with either!
-    storeOtpForKeys([targetEmail, cleanPhone], otp);
+    await storeOtpForKeys([targetEmail, cleanPhone], otp);
 
     let recipientName = fullName || 'CarromX Player';
     if (!fullName) {
@@ -102,11 +102,15 @@ router.post('/send-otp', async (req, res) => {
 
     if (targetEmail) {
       try {
-        const mailRes = await sendOtpEmail({
+        // Enforce 4.5s race timeout so cloud hosting networks don't hang requests
+        const emailPromise = sendOtpEmail({
           to: targetEmail,
           recipientName,
           otp
         });
+        const timeoutPromise = new Promise(resolve => setTimeout(() => resolve({ success: false, error: 'SMTP Timeout' }), 4500));
+        const mailRes = await Promise.race([emailPromise, timeoutPromise]);
+
         emailSent = Boolean(mailRes?.success);
         if (!mailRes?.success) emailError = mailRes?.error;
       } catch (err) {
@@ -272,19 +276,21 @@ router.post('/forgot-password', async (req, res) => {
       return res.status(404).json({ error: 'No account found with this email address. Please check your email or sign up.' });
     }
 
-    const otp = generateOtp(cleanEmail);
-    storeOtpForKeys([cleanEmail], otp);
+    const otp = await generateOtp(cleanEmail);
+    await storeOtpForKeys([cleanEmail], otp);
 
     const recipientName = user.full_name || 'CarromX User';
     let emailSent = false;
     let emailError = null;
 
     try {
-      const mailRes = await sendPasswordResetEmail({
+      const emailPromise = sendPasswordResetEmail({
         to: cleanEmail,
         recipientName,
         otp
       });
+      const timeoutPromise = new Promise(resolve => setTimeout(() => resolve({ success: false, error: 'SMTP Timeout' }), 4500));
+      const mailRes = await Promise.race([emailPromise, timeoutPromise]);
       emailSent = Boolean(mailRes?.success);
       if (!mailRes?.success) emailError = mailRes?.error;
     } catch (err) {
@@ -336,7 +342,7 @@ router.post('/reset-password', async (req, res) => {
       return res.status(400).json({ error: 'New password must be at least 6 characters long.' });
     }
 
-    const isValid = verifyStoredOtp(cleanEmail, cleanOtp);
+    const isValid = await verifyStoredOtp(cleanEmail, cleanOtp);
     if (!isValid) {
       return res.status(400).json({ error: 'Invalid or expired reset code. Please request a new code.' });
     }
@@ -408,11 +414,11 @@ router.post('/verify-otp', async (req, res) => {
 
     // Verify OTP against stored OTP keys
     let isValid = false;
-    if (cleanEmail && verifyStoredOtp(cleanEmail, otp)) {
+    if (cleanEmail && (await verifyStoredOtp(cleanEmail, otp))) {
       isValid = true;
-    } else if (cleanPhone && verifyStoredOtp(cleanPhone, otp)) {
+    } else if (cleanPhone && (await verifyStoredOtp(cleanPhone, otp))) {
       isValid = true;
-    } else if (rawTarget && verifyStoredOtp(rawTarget, otp)) {
+    } else if (rawTarget && (await verifyStoredOtp(rawTarget, otp))) {
       isValid = true;
     }
 
@@ -431,6 +437,8 @@ router.post('/verify-otp', async (req, res) => {
       const phoneRes = await query('SELECT * FROM users WHERE phone_number = $1', [cleanPhone]);
       // Safety: Never associate a non-admin player with usr_admin_carromx
       if (phoneRes.rows.length > 0 && phoneRes.rows[0].email === 'carrromx@gmail.com' && cleanEmail !== 'carrromx@gmail.com') {
+        // Free phone from super admin
+        await query("UPDATE users SET phone_number = '+919876543210' WHERE user_id = 'usr_admin_carromx'").catch(() => {});
         userRes = { rows: [] };
       } else {
         userRes = phoneRes;
@@ -445,15 +453,34 @@ router.post('/verify-otp', async (req, res) => {
       const newUserId = isSuperAdminEmail ? 'usr_admin_carromx' : ('usr_' + crypto.randomUUID().slice(0, 10));
       const name = fullName?.trim() || (cleanEmail ? cleanEmail.split('@')[0] : (cleanPhone ? `User_${cleanPhone.slice(-4)}` : 'Player'));
       const userEmail = cleanEmail || `${newUserId}@carromx.local`;
+
+      // Free phone from super admin if previously occupied
+      if (cleanPhone) {
+        await query("UPDATE users SET phone_number = '+919876543210' WHERE phone_number = $1 AND user_id = 'usr_admin_carromx'", [cleanPhone]).catch(() => {});
+      }
+
       // Never assign admin phone '+919876543210' to players! Use user's cleanPhone or a unique random number
       const randomUniquePhone = '+91' + Math.floor(6000000000 + Math.random() * 3999999999);
       const userPhone = cleanPhone || randomUniquePhone;
 
-      await query(
-        `INSERT INTO users (user_id, full_name, phone_number, email, role, created_at)
-         VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)`,
-        [newUserId, name, userPhone, userEmail, assignedRole]
-      );
+      try {
+        await query(
+          `INSERT INTO users (user_id, full_name, phone_number, email, role, created_at)
+           VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)`,
+          [newUserId, name, userPhone, userEmail, assignedRole]
+        );
+      } catch (insertErr) {
+        if (insertErr.message && (insertErr.message.includes('users_phone_number_key') || insertErr.code === '23505')) {
+          const fallbackPhone = '+91' + Math.floor(6000000000 + Math.random() * 3999999999);
+          await query(
+            `INSERT INTO users (user_id, full_name, phone_number, email, role, created_at)
+             VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)`,
+            [newUserId, name, fallbackPhone, userEmail, assignedRole]
+          );
+        } else {
+          throw insertErr;
+        }
+      }
 
       const created = await query('SELECT * FROM users WHERE user_id = $1', [newUserId]);
       user = created.rows[0];
@@ -471,6 +498,7 @@ router.post('/verify-otp', async (req, res) => {
       // Update missing or placeholder phone with cleanPhone (non-admin only)
       if (user.user_id !== 'usr_admin_carromx' && cleanPhone && (!user.phone_number || user.phone_number.startsWith('+9100') || user.phone_number !== cleanPhone)) {
         try {
+          await query("UPDATE users SET phone_number = '+919876543210' WHERE phone_number = $1 AND user_id = 'usr_admin_carromx'", [cleanPhone]).catch(() => {});
           await query('UPDATE users SET phone_number = $1 WHERE user_id = $2', [cleanPhone, user.user_id]);
           user.phone_number = cleanPhone;
         } catch (e) {
