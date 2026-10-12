@@ -224,7 +224,7 @@ router.post('/tournaments/:id/players/entry', authenticateToken, async (req, res
     const saved = await query(`
       SELECT p.*, u.full_name, u.phone_number, u.email 
       FROM participants p 
-      JOIN users u ON p.user_id = u.user_id 
+      LEFT JOIN users u ON p.user_id = u.user_id 
       WHERE p.participant_id = $1
     `, [participantId]);
 

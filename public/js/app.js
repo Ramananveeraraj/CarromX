@@ -691,7 +691,17 @@ async function loadTournamentDetailData(tournamentId) {
     const isVerified = Boolean(t.verified_by_helpdesk);
     const isSuperAdmin = currentUser?.role === 'super_admin' || currentUser?.role === 'help_desk';
     const isOwner = currentUser && (t.organizer_id === currentUser.userId);
-    const canManageTournament = isSuperAdmin || isOwner;
+    let isCoOrganizer = false;
+    try {
+      if (currentUser && !isOwner && !isSuperAdmin) {
+        const offCheck = await fetch(`/api/tournaments/${tournamentId}/officials`);
+        if (offCheck.ok) {
+          const offData = await offCheck.json();
+          isCoOrganizer = (offData.officials || []).some(o => o.user_id === currentUser.userId && o.official_role === 'co_organizer');
+        }
+      }
+    } catch (_) {}
+    const canManageTournament = isSuperAdmin || isOwner || isCoOrganizer;
 
     const content = document.getElementById('tournamentDetailContent');
     content.innerHTML = `
@@ -738,6 +748,9 @@ async function loadTournamentDetailData(tournamentId) {
               </button>
               <button onclick="currentTournamentId = '${t.tournament_id}'; navigateTo('playerentry');" class="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs shadow-lg transition flex items-center gap-1.5" title="Add Players Directly to this Roster">
                 <i class="fa-solid fa-user-plus"></i> Add Players
+              </button>
+              <button onclick="openManageOfficialsModal('${t.tournament_id}')" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg transition flex items-center gap-1.5" title="Assign Umpires & Co-Organisers">
+                <i class="fa-solid fa-users-gear"></i> Umpires &amp; Officials
               </button>
             ` : ''}
             <button onclick="openRegisterModal('${t.tournament_id}', '${t.entry_fee}', '${escapeHtml(t.organizer_name || 'Organiser')}', '${escapeHtml(t.organizer_phone || '')}')" class="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-bold text-xs shadow-lg transition flex items-center gap-2">
@@ -963,14 +976,11 @@ async function populateOrganizerTournamentSelect() {
 
   const isSuperAdmin = currentUser?.role === 'super_admin' || currentUser?.role === 'help_desk';
   if (!isSuperAdmin && currentUser) {
-    const myTournaments = list.filter(t => t.organizer_id === currentUser.userId);
-    if (myTournaments.length > 0) {
-      list = myTournaments;
-    }
+    list = list.filter(t => t.organizer_id === currentUser.userId);
   }
 
   if (list.length === 0) {
-    sel.innerHTML = `<option value="">No tournaments available</option>`;
+    sel.innerHTML = `<option value="">No tournaments created by you yet (Click + New Tournament)</option>`;
     currentTournamentId = '';
     return;
   }
@@ -4957,6 +4967,58 @@ function printOfficialScoreSheet() {
 }
 
 /**
+ * Download Official Score Sheet directly as high-resolution PDF file
+ */
+async function downloadOfficialScoreSheetPDF() {
+  const paperEl = document.getElementById('officialScoreSheetPaper');
+  if (!paperEl) {
+    alert('Scoresheet not loaded yet.');
+    return;
+  }
+  const fixture = currentScoreSheetFixture;
+  const p1 = (fixture?.p1_name || fixture?.player_1_name || 'Player1').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const p2 = (fixture?.p2_name || fixture?.player_2_name || 'Player2').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const filename = `CarromX_Official_Scoresheet_${p1}_vs_${p2}.pdf`;
+
+  const wasDark = scoreSheetTheme === 'dark';
+  if (wasDark) {
+    toggleScoreSheetTheme();
+  }
+
+  if (typeof html2pdf !== 'undefined') {
+    const opt = {
+      margin: [6, 6, 6, 6],
+      filename: filename,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, logging: false },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+    try {
+      if (typeof showToastNotification === 'function') {
+        showToastNotification('📄 Generating official scoresheet PDF...');
+      }
+      await html2pdf().set(opt).from(paperEl).save();
+      if (typeof showToastNotification === 'function') {
+        showToastNotification('✅ Scoresheet PDF downloaded successfully!');
+      }
+    } catch (err) {
+      console.error('html2pdf generation error, falling back to window.print():', err);
+      window.print();
+    } finally {
+      if (wasDark) {
+        setTimeout(toggleScoreSheetTheme, 1000);
+      }
+    }
+  } else {
+    window.print();
+    if (wasDark) {
+      setTimeout(toggleScoreSheetTheme, 1000);
+    }
+  }
+}
+
+
+/**
  * Render The Official Carrom Score Sheet
  * Exactly replicating Tamil Nadu School Games / Chennai Official Score Sheet
  */
@@ -5897,5 +5959,157 @@ function autoStampActiveGameTime(field) {
     }
   } catch (e) {}
 }
+
+/**
+ * -------------------------------------------------------------
+ * TOURNAMENT OFFICIALS MANAGEMENT (UMPIRES & CO-ORGANISERS)
+ * -------------------------------------------------------------
+ */
+
+function openManageOfficialsModal(tournamentId) {
+  const targetTourId = tournamentId || currentTournamentId || document.getElementById('organizerTournamentSelect')?.value;
+  if (!targetTourId) {
+    alert('Please select or create a tournament first.');
+    return;
+  }
+  const modal = document.getElementById('manageOfficialsModal');
+  if (!modal) return;
+  modal.dataset.tournamentId = targetTourId;
+  modal.classList.remove('hidden');
+  loadTournamentOfficials(targetTourId);
+}
+
+function closeManageOfficialsModal() {
+  const modal = document.getElementById('manageOfficialsModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function loadTournamentOfficials(tournamentId) {
+  const tbody = document.getElementById('tournamentOfficialsTableBody');
+  const countEl = document.getElementById('officialsCount');
+  if (!tbody) return;
+
+  const targetTourId = tournamentId || document.getElementById('manageOfficialsModal')?.dataset?.tournamentId || currentTournamentId;
+  if (!targetTourId) return;
+
+  tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center text-slate-500">Loading officials...</td></tr>';
+
+  try {
+    const res = await fetch(`/api/tournaments/${targetTourId}/officials`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to load officials');
+
+    const officials = data.officials || [];
+    if (countEl) countEl.innerText = officials.length;
+
+    if (officials.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="5" class="py-6 text-center text-slate-500">
+            <i class="fa-solid fa-users text-2xl mb-1 block opacity-30"></i>
+            No officials or umpires assigned yet. Use the form above to appoint an umpire or co-organiser.
+          </td>
+        </tr>`;
+      return;
+    }
+
+    const roleBadges = {
+      umpire: '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">⚖️ Umpire</span>',
+      chief_referee: '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">🏅 Chief Referee</span>',
+      co_organizer: '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">📋 Co-Organiser</span>'
+    };
+
+    tbody.innerHTML = officials.map(o => `
+      <tr class="hover:bg-slate-900/50 transition">
+        <td class="py-2.5 px-3">
+          <div class="font-bold text-white">${escapeHtml(o.full_name || 'Official')}</div>
+          <div class="text-[10px] text-slate-400 font-mono">${escapeHtml(o.official_id || '')}</div>
+        </td>
+        <td class="py-2.5 px-3">
+          ${roleBadges[o.official_role] || o.official_role}
+        </td>
+        <td class="py-2.5 px-3 font-semibold text-slate-300">
+          ${o.assigned_board_number ? `Board ${o.assigned_board_number}` : '<span class="text-slate-500">All Boards</span>'}
+        </td>
+        <td class="py-2.5 px-3 text-slate-300">
+          <div>${escapeHtml(o.phone_number || '-')}</div>
+          <div class="text-[10px] text-slate-500">${escapeHtml(o.email || '')}</div>
+        </td>
+        <td class="py-2.5 px-3 text-right">
+          <button onclick="deleteTournamentOfficial('${escapeHtml(o.official_id)}')" class="px-2.5 py-1 rounded-lg bg-rose-900/40 hover:bg-rose-900/80 text-rose-300 border border-rose-800/50 text-[11px] font-semibold transition" title="Remove official">
+            <i class="fa-solid fa-trash-can mr-1"></i> Remove
+          </button>
+        </td>
+      </tr>
+    `).join('');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="5" class="py-4 text-center text-rose-400">${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+async function handleAddOfficialSubmit(event) {
+  event.preventDefault();
+  const modal = document.getElementById('manageOfficialsModal');
+  const targetTourId = modal?.dataset?.tournamentId || currentTournamentId;
+  if (!targetTourId) {
+    alert('No active tournament selected.');
+    return;
+  }
+
+  const fullName = document.getElementById('officialFullName')?.value.trim();
+  const phoneNumber = document.getElementById('officialPhone')?.value.trim();
+  const role = document.getElementById('officialRole')?.value;
+  const boardNumber = document.getElementById('officialBoardNumber')?.value;
+  const email = document.getElementById('officialEmail')?.value.trim();
+
+  if (!fullName || !phoneNumber || !role) {
+    alert('Please fill in required fields (Name, Phone, Role).');
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/tournaments/${targetTourId}/officials`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${currentToken}`,
+        'x-carromx-active-role': activeRole
+      },
+      body: JSON.stringify({ fullName, phoneNumber, role, boardNumber, email })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to assign official');
+
+    alert(data.message || 'Official assigned successfully!');
+    document.getElementById('addOfficialForm')?.reset();
+    loadTournamentOfficials(targetTourId);
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function deleteTournamentOfficial(officialId) {
+  const modal = document.getElementById('manageOfficialsModal');
+  const targetTourId = modal?.dataset?.tournamentId || currentTournamentId;
+  if (!confirm('Are you sure you want to remove this official from the tournament?')) return;
+
+  try {
+    const res = await fetch(`/api/tournaments/${targetTourId}/officials/${officialId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${currentToken}`,
+        'x-carromx-active-role': activeRole
+      }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to remove official');
+
+    alert(data.message || 'Official removed successfully.');
+    loadTournamentOfficials(targetTourId);
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
 
 

@@ -128,18 +128,26 @@ export async function checkTournamentOwnership(tournamentId, user) {
   if (currentRole === 'super_admin') {
     return { authorized: true, isSuperAdmin: true, isOwner: true };
   }
-  if (currentRole === 'organizer') {
+  if (currentRole === 'organizer' || currentRole === 'co_organizer') {
     const tourRes = await query('SELECT organizer_id FROM tournaments WHERE tournament_id = $1', [tournamentId]);
     if (tourRes.rows.length > 0) {
       const orgId = tourRes.rows[0].organizer_id;
-      if (
-        orgId === user.user_id ||
-        orgId === 'usr_org_1' ||
-        orgId === 'usr_c9a7fb80-e' ||
-        (user.phone_number && user.phone_number.includes('9600436921')) ||
-        (user.email && user.email.includes('carromx'))
-      ) {
+      // Creator has full ownership
+      if (orgId === user.user_id) {
         return { authorized: true, isSuperAdmin: false, isOwner: true };
+      }
+      // Check co-organizer official assignment
+      try {
+        const offRes = await query(
+          `SELECT official_role FROM tournament_officials 
+           WHERE tournament_id = $1 AND user_id = $2 AND official_role = 'co_organizer'`,
+          [tournamentId, user.user_id]
+        );
+        if (offRes.rows.length > 0) {
+          return { authorized: true, isSuperAdmin: false, isOwner: true, isCoOrganizer: true };
+        }
+      } catch (err) {
+        // Table fallback during migration
       }
     }
   }

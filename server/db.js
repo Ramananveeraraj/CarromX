@@ -222,6 +222,19 @@ export async function initDb() {
       );
     `);
 
+    // Tournament Officials: Umpires, Referees, and Co-Organisers
+    await query(`
+      CREATE TABLE IF NOT EXISTS tournament_officials (
+        official_id TEXT PRIMARY KEY,
+        tournament_id TEXT NOT NULL REFERENCES tournaments(tournament_id) ON DELETE CASCADE,
+        user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+        official_role TEXT NOT NULL CHECK (official_role IN ('co_organizer', 'umpire', 'chief_referee')),
+        assigned_board_number INTEGER,
+        assigned_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(tournament_id, user_id, official_role)
+      );
+    `);
+
     // Ensure extra columns on match_fixtures and tournaments if missing (SQLite migration helper)
     try {
       const tourColsRes = await query("PRAGMA table_info(tournaments);");

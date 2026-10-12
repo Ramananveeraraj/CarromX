@@ -19,7 +19,7 @@ router.get('/', async (req, res) => {
         (SELECT COUNT(*) FROM participants p WHERE p.tournament_id = t.tournament_id) as participant_count,
         (SELECT COUNT(*) FROM participants p WHERE p.tournament_id = t.tournament_id AND p.payment_status = 'approved') as approved_participant_count
       FROM tournaments t
-      JOIN users u ON t.organizer_id = u.user_id
+      LEFT JOIN users u ON t.organizer_id = u.user_id
       WHERE 1=1
     `;
     const params = [];
@@ -56,7 +56,7 @@ router.get('/:id', async (req, res) => {
         u.phone_number as organizer_phone,
         u.email as organizer_email
       FROM tournaments t
-      JOIN users u ON t.organizer_id = u.user_id
+      LEFT JOIN users u ON t.organizer_id = u.user_id
       WHERE t.tournament_id = $1
     `, [id]);
 
@@ -80,7 +80,7 @@ router.get('/:id', async (req, res) => {
         u.phone_number,
         u.email
       FROM participants p
-      JOIN users u ON p.user_id = u.user_id
+      LEFT JOIN users u ON p.user_id = u.user_id
       WHERE p.tournament_id = $1
       ORDER BY p.seeding_rank ASC, p.registered_at ASC
     `, [id]);
@@ -312,6 +312,72 @@ router.put('/:id/timing', authenticateToken, async (req, res) => {
 });
 
 /**
+ * Update tournament details (Creator or Super Admin only)
+ */
+router.put('/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const perm = await checkTournamentOwnership(id, req.user);
+    if (!perm.authorized) {
+      return res.status(403).json({ error: 'Forbidden: You can only edit tournaments you created, or as Super Admin.' });
+    }
+
+    const {
+      title,
+      venue_address,
+      format,
+      total_boards,
+      max_points_per_set,
+      boards_per_set,
+      total_sets,
+      set_time_limit_minutes,
+      match_duration_minutes,
+      entry_fee,
+      upi_id,
+      rules_summary,
+      banner_url,
+      status
+    } = req.body;
+
+    const updates = [];
+    const params = [];
+
+    if (title !== undefined) { params.push(title); updates.push(`title = $${params.length}`); }
+    if (venue_address !== undefined) { params.push(venue_address); updates.push(`venue_address = $${params.length}`); }
+    if (format !== undefined) { params.push(format); updates.push(`format = $${params.length}`); }
+    if (total_boards !== undefined) { params.push(parseInt(total_boards, 10) || 4); updates.push(`total_boards = $${params.length}`); }
+    if (max_points_per_set !== undefined) { params.push(parseInt(max_points_per_set, 10) || 25); updates.push(`max_points_per_set = $${params.length}`); }
+    if (boards_per_set !== undefined) { params.push(parseInt(boards_per_set, 10) || 8); updates.push(`boards_per_set = $${params.length}`); }
+    if (total_sets !== undefined) { params.push(parseInt(total_sets, 10) || 3); updates.push(`total_sets = $${params.length}`); }
+    if (set_time_limit_minutes !== undefined) { params.push(parseInt(set_time_limit_minutes, 10) || 25); updates.push(`set_time_limit_minutes = $${params.length}`); }
+    if (match_duration_minutes !== undefined) { params.push(parseInt(match_duration_minutes, 10) || 45); updates.push(`match_duration_minutes = $${params.length}`); }
+    if (entry_fee !== undefined) { params.push(parseFloat(entry_fee) || 0); updates.push(`entry_fee = $${params.length}`); }
+    if (upi_id !== undefined) { params.push(upi_id); updates.push(`upi_id = $${params.length}`); }
+    if (rules_summary !== undefined) { params.push(rules_summary); updates.push(`rules_summary = $${params.length}`); }
+    if (banner_url !== undefined) { params.push(banner_url); updates.push(`banner_url = $${params.length}`); }
+    if (status !== undefined) { params.push(status); updates.push(`status = $${params.length}`); }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields provided to update.' });
+    }
+
+    params.push(id);
+    const sql = `UPDATE tournaments SET ${updates.join(', ')} WHERE tournament_id = $${params.length}`;
+    await query(sql, params);
+
+    const updatedTour = await query('SELECT * FROM tournaments WHERE tournament_id = $1', [id]);
+    res.json({
+      success: true,
+      message: 'Tournament updated successfully.',
+      tournament: updatedTour.rows[0]
+    });
+  } catch (err) {
+    console.error('Error updating tournament:', err);
+    res.status(500).json({ error: 'Failed to update tournament', details: err.message });
+  }
+});
+
+/**
  * Delete a tournament (Owner or Super Admin only)
  */
 router.delete('/:id', authenticateToken, async (req, res) => {
@@ -330,6 +396,153 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 });
 
 /**
+ * Get Tournament Officials (Umpires, Chief Referees, Co-Organisers)
+ */
+router.get('/:id/officials', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rows } = await query(`
+      SELECT 
+        o.official_id,
+        o.tournament_id,
+        o.user_id,
+        o.official_role,
+        o.assigned_board_number,
+        o.assigned_at,
+        u.full_name,
+        u.phone_number,
+        u.email
+      FROM tournament_officials o
+      LEFT JOIN users u ON o.user_id = u.user_id
+      WHERE o.tournament_id = $1
+      ORDER BY o.assigned_at ASC
+    `, [id]);
+    res.json({ officials: rows });
+  } catch (err) {
+    console.error('Error fetching tournament officials:', err);
+    res.status(500).json({ error: 'Failed to fetch officials', details: err.message });
+  }
+});
+
+/**
+ * Add / Assign Tournament Official (Owner or Super Admin only)
+ * Can assign umpire, chief_referee, or co_organizer
+ */
+router.post('/:id/officials', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const perm = await checkTournamentOwnership(id, req.user);
+    if (!perm.authorized) {
+      return res.status(403).json({ error: 'Forbidden: Only the tournament creator or Super Admin can assign officials.' });
+    }
+
+    const { fullName, phoneNumber, email, role, boardNumber } = req.body;
+    if (!fullName || !phoneNumber || !role) {
+      return res.status(400).json({ error: 'Full name, phone number, and official role are required.' });
+    }
+
+    const validRoles = ['co_organizer', 'umpire', 'chief_referee'];
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({ error: `Role must be one of: ${validRoles.join(', ')}` });
+    }
+
+    const cleanPhone = phoneNumber.trim();
+    const cleanName = fullName.trim();
+    const assignedBoard = boardNumber ? parseInt(boardNumber, 10) : null;
+
+    // Check or create user
+    let userRes = await query('SELECT * FROM users WHERE phone_number = $1', [cleanPhone]);
+    let user;
+    if (userRes.rows.length === 0) {
+      const newUserId = 'usr_' + crypto.randomUUID().slice(0, 10);
+      const userEmail = email && email.trim() ? email.trim() : `${newUserId}@carromx.local`;
+      const systemRole = role === 'co_organizer' ? 'organizer' : 'umpire';
+      await query(
+        `INSERT INTO users (user_id, full_name, phone_number, email, role, created_at)
+         VALUES ($1, $2, $3, $4, $5, datetime('now'))`,
+        [newUserId, cleanName, cleanPhone, userEmail, systemRole]
+      );
+      userRes = await query('SELECT * FROM users WHERE user_id = $1', [newUserId]);
+    } else {
+      user = userRes.rows[0];
+      if (cleanName && cleanName !== user.full_name) {
+        await query('UPDATE users SET full_name = $1 WHERE user_id = $2', [cleanName, user.user_id]);
+      }
+    }
+    user = userRes.rows[0];
+
+    // Check if already an official in this tournament with this role
+    const existing = await query(
+      'SELECT * FROM tournament_officials WHERE tournament_id = $1 AND user_id = $2 AND official_role = $3',
+      [id, user.user_id, role]
+    );
+
+    let officialId;
+    if (existing.rows.length > 0) {
+      officialId = existing.rows[0].official_id;
+      await query(
+        `UPDATE tournament_officials 
+         SET assigned_board_number = $1
+         WHERE official_id = $2`,
+        [assignedBoard, officialId]
+      );
+    } else {
+      officialId = 'off_' + crypto.randomUUID().slice(0, 10);
+      await query(
+        `INSERT INTO tournament_officials (
+          official_id, tournament_id, user_id, official_role, assigned_board_number, assigned_at
+        ) VALUES ($1, $2, $3, $4, $5, datetime('now'))`,
+        [officialId, id, user.user_id, role, assignedBoard]
+      );
+    }
+
+    const saved = await query(`
+      SELECT 
+        o.official_id,
+        o.tournament_id,
+        o.user_id,
+        o.official_role,
+        o.assigned_board_number,
+        o.assigned_at,
+        u.full_name,
+        u.phone_number,
+        u.email
+      FROM tournament_officials o
+      LEFT JOIN users u ON o.user_id = u.user_id
+      WHERE o.official_id = $1
+    `, [officialId]);
+
+    res.status(201).json({
+      success: true,
+      message: `${role.replace('_', ' ').toUpperCase()} assigned successfully!`,
+      official: saved.rows[0]
+    });
+  } catch (err) {
+    console.error('Error assigning tournament official:', err);
+    res.status(500).json({ error: 'Failed to assign official', details: err.message });
+  }
+});
+
+/**
+ * Remove Tournament Official (Owner or Super Admin only)
+ */
+router.delete('/:id/officials/:officialId', authenticateToken, async (req, res) => {
+  try {
+    const { id, officialId } = req.params;
+    const perm = await checkTournamentOwnership(id, req.user);
+    if (!perm.authorized) {
+      return res.status(403).json({ error: 'Forbidden: Only the tournament creator or Super Admin can remove officials.' });
+    }
+
+    await query('DELETE FROM tournament_officials WHERE official_id = $1 AND tournament_id = $2', [officialId, id]);
+    res.json({ success: true, message: 'Official removed successfully.' });
+  } catch (err) {
+    console.error('Error removing tournament official:', err);
+    res.status(500).json({ error: 'Failed to remove official', details: err.message });
+  }
+});
+
+/**
  * Live Tournament Standings & Points Table
  */
 router.get('/:id/standings', async (req, res) => {
@@ -338,9 +551,9 @@ router.get('/:id/standings', async (req, res) => {
 
     // Get approved participants
     const partsRes = await query(`
-      SELECT p.participant_id, p.seeding_rank, u.user_id, u.full_name, u.phone_number
+      SELECT p.participant_id, p.seeding_rank, u.user_id, COALESCE(u.full_name, 'Player') as full_name, u.phone_number
       FROM participants p
-      JOIN users u ON p.user_id = u.user_id
+      LEFT JOIN users u ON p.user_id = u.user_id
       WHERE p.tournament_id = $1 AND p.payment_status = 'approved'
       ORDER BY p.seeding_rank ASC
     `, [id]);

@@ -4,6 +4,7 @@
 -- ============================================================
 
 -- Drop tables if existing (in reverse dependency order)
+DROP TABLE IF EXISTS tournament_officials CASCADE;
 DROP TABLE IF EXISTS match_scores CASCADE;
 DROP TABLE IF EXISTS match_officials CASCADE;
 DROP TABLE IF EXISTS match_fixtures CASCADE;
@@ -119,6 +120,17 @@ CREATE TABLE notification_logs (
     dispatched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 9. tournament_officials Table (Umpires, Referees, and Co-Organisers)
+CREATE TABLE tournament_officials (
+    official_id VARCHAR(64) PRIMARY KEY,
+    tournament_id VARCHAR(64) NOT NULL REFERENCES tournaments(tournament_id) ON DELETE CASCADE,
+    user_id VARCHAR(64) NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    official_role VARCHAR(50) NOT NULL CHECK (official_role IN ('co_organizer', 'umpire', 'chief_referee')),
+    assigned_board_number INT,
+    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_tournament_official UNIQUE (tournament_id, user_id, official_role)
+);
+
 -- Indexes for optimal lookup performance
 CREATE INDEX idx_tournaments_organizer ON tournaments(organizer_id);
 CREATE INDEX idx_tournaments_status ON tournaments(status);
@@ -128,4 +140,7 @@ CREATE INDEX idx_fixtures_scheduled_time ON match_fixtures(scheduled_start_time)
 CREATE INDEX idx_scores_fixture ON match_scores(fixture_id);
 CREATE INDEX idx_officials_fixture ON match_officials(fixture_id);
 CREATE INDEX idx_officials_referee ON match_officials(referee_user_id);
+CREATE INDEX idx_tournament_officials_tour ON tournament_officials(tournament_id);
+CREATE INDEX idx_tournament_officials_user ON tournament_officials(user_id);
 CREATE INDEX idx_notif_fixture_user ON notification_logs(fixture_id, user_id);
+
