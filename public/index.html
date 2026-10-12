@@ -1778,14 +1778,17 @@
 
         <!-- Step 2: OTP Verification -->
         <div id="authStepOtp" class="hidden space-y-3.5">
-          <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-center space-y-1">
-            <div class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-emerald-500/20 text-emerald-400 mb-0.5">
-              <i class="fa-solid fa-envelope-circle-check text-xs"></i>
+          <div id="otpDeliveryStatusBanner" class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-center space-y-1.5">
+            <div id="otpStatusIcon" class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400">
+              <i class="fa-solid fa-envelope-circle-check text-sm"></i>
             </div>
-            <span class="text-xs text-white font-bold block">Verification Code Dispatched</span>
+            <span id="otpStatusTitle" class="text-xs text-white font-bold block">Verification Code Dispatched</span>
             <span class="text-[11px] text-slate-300 block">Sent to: <strong id="otpTargetEmail" class="font-mono text-amber-400"></strong></span>
             <span id="otpTargetPhone" class="font-mono text-[11px] text-slate-400 block"></span>
-            <span class="text-[10px] text-emerald-400 block pt-0.5 font-medium"><i class="fa-solid fa-inbox mr-1"></i>Please check your Email Inbox or Spam folder and enter the 6 digits below</span>
+            <div class="p-2.5 rounded-lg bg-amber-950/40 border border-amber-600/40 text-[11px] text-amber-300 text-left flex items-start gap-2 shadow-sm">
+              <i class="fa-solid fa-triangle-exclamation text-amber-400 mt-0.5 shrink-0 text-xs"></i>
+              <span class="leading-relaxed"><strong>Check Spam / Junk Folder:</strong> If the email is not in your Inbox, please check your <strong>Spam / Junk</strong> folder or Promotions tab!</span>
+            </div>
           </div>
 
           <div>
@@ -1800,19 +1803,30 @@
             </div>
           </div>
 
-          <!-- Backup helper: shown if user clicks or needs fallback -->
-          <div class="text-center pt-0.5">
-            <button type="button" onclick="revealBackupOtp()" id="btnRevealBackup" class="text-[11px] text-slate-400 hover:text-amber-400 underline transition">
-              Didn't receive email? View backup code
-            </button>
-            <div id="devOtpHelper" class="hidden mt-2 p-3 rounded-xl bg-amber-950/40 border border-amber-600/40 text-xs text-amber-200 flex items-center justify-between shadow-lg text-left">
-              <div>
-                <span class="text-[10px] text-slate-400 uppercase font-semibold block">Backup Code Fallback</span>
-                <span id="devOtpCode" class="font-mono font-black text-amber-300 text-lg tracking-widest block"></span>
-              </div>
-              <button onclick="autofillDevOtp()" class="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition shadow flex items-center gap-1.5">
-                <i class="fa-solid fa-bolt"></i> Auto-Fill
+          <!-- Fallback & Resend Controls: ensure nobody is ever blocked -->
+          <div class="text-center pt-0.5 space-y-2">
+            <div class="flex items-center justify-between text-xs px-1">
+              <button type="button" id="btnResendOtp" onclick="resendOtpCode()" class="text-slate-400 hover:text-amber-400 font-semibold transition disabled:opacity-50">
+                <i class="fa-solid fa-rotate-right mr-1"></i> Resend Code
               </button>
+              <button type="button" onclick="revealBackupOtp()" id="btnRevealBackup" class="text-amber-400 hover:text-amber-300 font-bold underline transition">
+                Didn't receive email? View code
+              </button>
+            </div>
+
+            <div id="devOtpHelper" class="hidden p-3 rounded-xl bg-amber-950/60 border border-amber-500/50 text-xs text-amber-200 shadow-xl text-left space-y-2">
+              <div class="flex items-center justify-between">
+                <div>
+                  <span class="text-[10px] text-amber-400 uppercase font-bold block">⚡ Instant Verification Code</span>
+                  <span id="devOtpCode" class="font-mono font-black text-amber-300 text-2xl tracking-widest block"></span>
+                </div>
+                <button type="button" onclick="autofillDevOtp()" class="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs transition shadow flex items-center gap-1.5 active:scale-95">
+                  <i class="fa-solid fa-bolt"></i> Auto-Fill
+                </button>
+              </div>
+              <p class="text-[10px] text-slate-300 leading-tight">
+                Use this instant code if your mail provider delays or filters incoming emails.
+              </p>
             </div>
           </div>
 

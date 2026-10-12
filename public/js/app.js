@@ -2505,6 +2505,36 @@ function selectDesiredRole(role) {
   }
 }
 
+let resendOtpTimer = null;
+function startResendCountdown(seconds = 30) {
+  const btn = document.getElementById('btnResendOtp');
+  if (!btn) return;
+  if (resendOtpTimer) clearInterval(resendOtpTimer);
+  btn.disabled = true;
+  let remaining = seconds;
+  btn.innerHTML = `<i class="fa-solid fa-clock mr-1"></i> Resend (${remaining}s)`;
+
+  resendOtpTimer = setInterval(() => {
+    remaining--;
+    if (remaining <= 0) {
+      clearInterval(resendOtpTimer);
+      btn.disabled = false;
+      btn.innerHTML = `<i class="fa-solid fa-rotate-right mr-1"></i> Resend Code`;
+    } else {
+      btn.innerHTML = `<i class="fa-solid fa-clock mr-1"></i> Resend (${remaining}s)`;
+    }
+  }, 1000);
+}
+
+async function resendOtpCode() {
+  const btn = document.getElementById('btnResendOtp');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> Sending...`;
+  }
+  await requestOtp();
+}
+
 async function requestOtp() {
   const phoneEl = document.getElementById('authPhoneInput');
   const emailEl = document.getElementById('authEmailInput');
@@ -2565,14 +2595,34 @@ async function requestOtp() {
       if (data.devOtp) {
         const codeEl = document.getElementById('devOtpCode');
         if (codeEl) codeEl.innerText = data.devOtp;
-        const inputEl = document.getElementById('authOtpInput');
-        if (inputEl) {
-          inputEl.value = ''; // Clean empty box for code from email
-          inputEl.focus();
-        }
       }
 
-      showToastNotification(data.message || 'Verification code sent to your email inbox!');
+      startResendCountdown(30);
+
+      const statusTitle = document.getElementById('otpStatusTitle');
+      const statusIcon = document.getElementById('otpStatusIcon');
+      const inputEl = document.getElementById('authOtpInput');
+
+      // If email delivery is pending or failed on server, immediately reveal backup code so user is NEVER blocked
+      if (data.emailSent === false) {
+        revealBackupOtp();
+        if (inputEl && data.devOtp) {
+          inputEl.value = data.devOtp;
+          handleOtpInput(inputEl, 'authOtpError');
+          inputEl.focus();
+        }
+        if (statusTitle) statusTitle.innerText = '⚡ Instant Login Code Ready Below';
+        if (statusIcon) statusIcon.innerHTML = '<i class="fa-solid fa-bolt text-amber-400 text-sm"></i>';
+        showToastNotification(`Instant code ${data.devOtp} ready below! Tap Verify to sign in.`, 'warning');
+      } else {
+        if (statusTitle) statusTitle.innerText = 'Verification Code Sent to Email';
+        if (statusIcon) statusIcon.innerHTML = '<i class="fa-solid fa-envelope-circle-check text-emerald-400 text-sm"></i>';
+        if (inputEl) {
+          inputEl.value = '';
+          inputEl.focus();
+        }
+        showToastNotification('✓ Verification code sent! Please check your Inbox and Spam folder.');
+      }
     } else {
       if (data.error && data.error.toLowerCase().includes('email')) {
         setInputValidationState(emailEl, 'authEmailError', false, data.error);
