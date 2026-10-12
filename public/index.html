@@ -1656,8 +1656,8 @@
   </div>
 
   <!-- MODAL: Dedicated User Authentication (Player / Organiser & Master Super Admin) -->
-  <div id="authModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="wooden-trim-card max-w-md w-full p-6 shadow-2xl space-y-4">
+  <div id="authModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="wooden-trim-card max-w-md w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto my-auto">
       
       <!-- Modal Header -->
       <div class="flex items-center justify-between border-b border-slate-800 pb-3">
@@ -2027,8 +2027,8 @@
   </div>
 
   <!-- MODAL: Direct GPay / Phone Call Tournament Application -->
-  <div id="registerModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5">
+  <div id="registerModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-5 max-h-[92vh] overflow-y-auto my-auto">
       <div class="flex items-center justify-between border-b border-slate-800 pb-3">
         <h3 class="font-bold text-white text-base flex items-center gap-2">
           <i class="fa-solid fa-ticket text-amber-500"></i> Apply for Tournament
@@ -2086,18 +2086,18 @@
   </div>
 
   <!-- MODAL: Create Tournament Module -->
-  <div id="createTournamentModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 my-8">
-      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+  <div id="createTournamentModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-5 overflow-hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full shadow-2xl flex flex-col max-h-[92vh] overflow-hidden my-auto">
+      <div class="flex items-center justify-between border-b border-slate-800 px-5 py-4 flex-shrink-0 bg-slate-900">
         <h3 class="font-bold text-white text-base flex items-center gap-2">
           <i class="fa-solid fa-plus-circle text-blue-400"></i> Create New Carrom Tournament
         </h3>
-        <button onclick="closeCreateTournamentModal()" class="text-slate-400 hover:text-white">
-          <i class="fa-solid fa-xmark"></i>
+        <button type="button" onclick="closeCreateTournamentModal()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition" title="Close">
+          <i class="fa-solid fa-xmark text-lg"></i>
         </button>
       </div>
 
-      <form id="createTournamentForm" onsubmit="handleCreateTournament(event)" class="space-y-4 text-xs">
+      <form id="createTournamentForm" onsubmit="handleCreateTournament(event)" class="px-5 py-4 overflow-y-auto space-y-4 text-xs flex-1">
         <div>
           <label class="block font-semibold text-slate-300 mb-1">Tournament Title *</label>
           <input type="text" id="newTourTitle" required placeholder="e.g. Bangalore Open Carrom Championship 2026" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
@@ -2201,31 +2201,33 @@
           <i class="fa-solid fa-shield-check text-blue-400 mr-1"></i> Trust Rule: Newly created tournaments default to <code class="text-amber-400">verified_by_helpdesk = false</code> and status <code class="text-amber-400">pending_verification</code> until approved by Help Desk Admin.
         </div>
 
-        <button type="submit" class="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow transition">
-          Create Tournament & Scaffolding
-        </button>
+        <div class="pt-2 sticky bottom-0 bg-slate-900/95 pb-1">
+          <button type="submit" class="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold text-sm shadow-xl transition flex items-center justify-center gap-2 active:scale-98">
+            <i class="fa-solid fa-check"></i> Create Tournament & Scaffolding
+          </button>
+        </div>
       </form>
     </div>
   </div>
 
   <!-- MODAL: Edit Match Timing & Board Assignment -->
-  <div id="editMatchTimingModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 my-8">
-      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+  <div id="editMatchTimingModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-5 overflow-hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full shadow-2xl flex flex-col max-h-[92vh] overflow-hidden my-auto">
+      <div class="flex items-center justify-between border-b border-slate-800 px-5 py-4 flex-shrink-0 bg-slate-900">
         <h3 class="font-bold text-white text-base flex items-center gap-2">
           <i class="fa-solid fa-clock text-purple-400"></i> Edit Match Timing &amp; Board
         </h3>
-        <button onclick="closeEditMatchTimingModal()" class="text-slate-400 hover:text-white">
-          <i class="fa-solid fa-xmark"></i>
+        <button type="button" onclick="closeEditMatchTimingModal()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition" title="Close">
+          <i class="fa-solid fa-xmark text-lg"></i>
         </button>
       </div>
 
-      <div class="p-3.5 rounded-xl bg-purple-950/20 border border-purple-800/40 space-y-1">
+      <div class="p-3.5 mx-5 mt-4 rounded-xl bg-purple-950/20 border border-purple-800/40 space-y-1 flex-shrink-0">
         <div id="editModalMatchLabel" class="text-xs font-bold text-purple-300">Match #1 &bull; Round 1</div>
         <div id="editModalPlayersLabel" class="text-sm font-black text-white">Player 1 vs Player 2</div>
       </div>
 
-      <form id="editMatchTimingForm" onsubmit="handleSaveFixtureTiming(event)" class="space-y-4 text-xs">
+      <form id="editMatchTimingForm" onsubmit="handleSaveFixtureTiming(event)" class="px-5 py-4 overflow-y-auto space-y-4 text-xs flex-1">
         <input type="hidden" id="editModalFixtureId">
 
         <div>
@@ -2269,8 +2271,8 @@
   </div>
 
   <!-- MODAL: Organizer Score Override -->
-  <div id="organizerOverrideModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+  <div id="organizerOverrideModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto my-auto">
       <div class="flex items-center justify-between border-b border-slate-800 pb-3">
         <h3 class="font-bold text-white text-base flex items-center gap-2">
           <i class="fa-solid fa-lock-open text-amber-500"></i> Organizer Score Override
@@ -2313,8 +2315,8 @@
   </div>
 
   <!-- MODAL: Raise Match Dispute -->
-  <div id="disputeModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+  <div id="disputeModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto my-auto">
       <div class="flex items-center justify-between border-b border-slate-800 pb-3">
         <h3 class="font-bold text-white text-base flex items-center gap-2">
           <i class="fa-solid fa-triangle-exclamation text-rose-500"></i> Raise Match Dispute
@@ -2496,8 +2498,8 @@
   </div>
 
   <!-- MODAL: Add Anyone at Any Role (Master User Creation) -->
-  <div id="addUserModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="wooden-trim-card max-w-md w-full p-6 shadow-2xl space-y-4">
+  <div id="addUserModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="wooden-trim-card max-w-md w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto my-auto">
       <div class="flex items-center justify-between border-b border-slate-800 pb-3">
         <h3 class="font-bold text-white text-base flex items-center gap-2">
           <i class="fa-solid fa-user-plus text-purple-400"></i> Add Anyone at Any Role
@@ -2545,8 +2547,8 @@
   </div>
 
   <!-- MODAL: Generate Fixtures with Random Shuffle Draw -->
-  <div id="generateFixturesModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="wooden-trim-card max-w-lg w-full p-6 shadow-2xl space-y-5">
+  <div id="generateFixturesModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="wooden-trim-card max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-5 max-h-[92vh] overflow-y-auto my-auto">
       <div class="flex items-center justify-between border-b border-slate-800 pb-3">
         <h3 class="font-bold text-white text-base flex items-center gap-2">
           <i class="fa-solid fa-shuffle text-blue-400"></i> Generate Tournament Fixtures

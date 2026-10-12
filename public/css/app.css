@@ -1052,3 +1052,36 @@ body.theme-emerald-gold .brand-pro-tag {
   border-color: rgba(245, 158, 11, 0.4) !important;
 }
 
+/* ============================================================
+   UNIVERSAL MODAL VIEWPORT SAFETY & SCROLLING ENHANCEMENT
+   Guarantees that every modal fits within 92vh/92dvh on any screen size,
+   keeps header and close button visible, and enables smooth scrolling.
+   ============================================================ */
+#createTournamentModal > div,
+#editMatchTimingModal > div,
+#manageOfficialsModal > div,
+#authModal > div,
+#registerModal > div,
+#addUserModal > div,
+#generateFixturesModal > div,
+#organizerOverrideModal > div,
+#disputeModal > div {
+  max-height: 92vh !important;
+  max-height: 92dvh !important;
+  margin: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+#createTournamentModal form,
+#editMatchTimingModal form,
+#manageOfficialsModal form,
+#authModal > div,
+#addUserModal form,
+#generateFixturesModal > div > div {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+
