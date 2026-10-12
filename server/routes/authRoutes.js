@@ -61,14 +61,17 @@ router.post('/send-otp', async (req, res) => {
     if (cleanPhone && !targetEmail) {
       const uRes = await query('SELECT email, full_name FROM users WHERE phone_number = $1', [cleanPhone]);
       if (uRes.rows.length > 0 && uRes.rows[0].email && !uRes.rows[0].email.endsWith('@carromx.local')) {
-        targetEmail = uRes.rows[0].email;
+        // Safety: NEVER expose super admin email to general phone queries!
+        if (uRes.rows[0].email.toLowerCase() !== 'carrromx@gmail.com') {
+          targetEmail = uRes.rows[0].email;
+        }
       }
     }
 
     // If email is provided but phone is not, check if user exists with a phone
     if (targetEmail && !cleanPhone) {
       const uRes = await query('SELECT phone_number, full_name FROM users WHERE LOWER(email) = $1', [targetEmail]);
-      if (uRes.rows.length > 0 && uRes.rows[0].phone_number) {
+      if (uRes.rows.length > 0 && uRes.rows[0].phone_number && !uRes.rows[0].phone_number.startsWith('+9100')) {
         cleanPhone = uRes.rows[0].phone_number;
       }
     }
@@ -161,16 +164,20 @@ router.post('/login', async (req, res) => {
     }
 
     let userRes = { rows: [] };
-    if (inputEmail && cleanPhone) {
-      userRes = await query('SELECT * FROM users WHERE LOWER(email) = $1 OR phone_number = $2', [inputEmail, cleanPhone]);
-    } else if (inputEmail) {
+    if (inputEmail) {
       userRes = await query('SELECT * FROM users WHERE LOWER(email) = $1', [inputEmail]);
-    } else if (cleanPhone) {
-      userRes = await query('SELECT * FROM users WHERE phone_number = $1', [cleanPhone]);
+    }
+    if (userRes.rows.length === 0 && cleanPhone) {
+      const phoneRes = await query('SELECT * FROM users WHERE phone_number = $1', [cleanPhone]);
+      if (phoneRes.rows.length > 0 && phoneRes.rows[0].email === 'carrromx@gmail.com' && inputEmail !== 'carrromx@gmail.com') {
+        userRes = { rows: [] }; // Do not hijack admin account for non-admin
+      } else {
+        userRes = phoneRes;
+      }
     }
     let user = userRes.rows[0];
 
-    const isMasterAdmin = (inputEmail === 'carrromx@gmail.com' || cleanPhone === '+919876543210' || inputEmail === 'admin@carromx.com');
+    const isMasterAdmin = (inputEmail === 'carrromx@gmail.com' || (inputEmail === 'admin@carromx.com' && inputPassword === 'Ramanan@03'));
     let isPasswordValid = false;
 
     if (isMasterAdmin) {
@@ -415,14 +422,19 @@ router.post('/verify-otp', async (req, res) => {
 
     const targetRole = (desiredRole || role) ? normalizeRole(desiredRole || role) : null;
 
-    // Find user by either email or phone
+    // Find user by email first, or by phone if email not registered
     let userRes = { rows: [] };
-    if (cleanEmail && cleanPhone) {
-      userRes = await query('SELECT * FROM users WHERE LOWER(email) = $1 OR phone_number = $2', [cleanEmail, cleanPhone]);
-    } else if (cleanEmail) {
+    if (cleanEmail) {
       userRes = await query('SELECT * FROM users WHERE LOWER(email) = $1', [cleanEmail]);
-    } else if (cleanPhone) {
-      userRes = await query('SELECT * FROM users WHERE phone_number = $1', [cleanPhone]);
+    }
+    if (userRes.rows.length === 0 && cleanPhone) {
+      const phoneRes = await query('SELECT * FROM users WHERE phone_number = $1', [cleanPhone]);
+      // Safety: Never associate a non-admin player with usr_admin_carromx
+      if (phoneRes.rows.length > 0 && phoneRes.rows[0].email === 'carrromx@gmail.com' && cleanEmail !== 'carrromx@gmail.com') {
+        userRes = { rows: [] };
+      } else {
+        userRes = phoneRes;
+      }
     }
 
     let user;
@@ -433,7 +445,9 @@ router.post('/verify-otp', async (req, res) => {
       const newUserId = isSuperAdminEmail ? 'usr_admin_carromx' : ('usr_' + crypto.randomUUID().slice(0, 10));
       const name = fullName?.trim() || (cleanEmail ? cleanEmail.split('@')[0] : (cleanPhone ? `User_${cleanPhone.slice(-4)}` : 'Player'));
       const userEmail = cleanEmail || `${newUserId}@carromx.local`;
-      const userPhone = cleanPhone || '+919876543210';
+      // Never assign admin phone '+919876543210' to players! Use user's cleanPhone or a unique random number
+      const randomUniquePhone = '+91' + Math.floor(6000000000 + Math.random() * 3999999999);
+      const userPhone = cleanPhone || randomUniquePhone;
 
       await query(
         `INSERT INTO users (user_id, full_name, phone_number, email, role, created_at)
@@ -445,8 +459,8 @@ router.post('/verify-otp', async (req, res) => {
       user = created.rows[0];
     } else {
       user = userRes.rows[0];
-      // Update missing or placeholder email with the provided cleanEmail
-      if (cleanEmail && (!user.email || user.email.endsWith('@carromx.local') || user.email.toLowerCase() !== cleanEmail)) {
+      // Update missing or placeholder email with the provided cleanEmail (non-admin only)
+      if (user.user_id !== 'usr_admin_carromx' && cleanEmail && (!user.email || user.email.endsWith('@carromx.local') || user.email.toLowerCase() !== cleanEmail)) {
         try {
           await query('UPDATE users SET email = $1 WHERE user_id = $2', [cleanEmail, user.user_id]);
           user.email = cleanEmail;
@@ -454,8 +468,8 @@ router.post('/verify-otp', async (req, res) => {
           // ignore duplicate email constraint if already assigned
         }
       }
-      // Update missing or placeholder phone with cleanPhone
-      if (cleanPhone && (!user.phone_number || user.phone_number === '+919876543210' || user.phone_number !== cleanPhone)) {
+      // Update missing or placeholder phone with cleanPhone (non-admin only)
+      if (user.user_id !== 'usr_admin_carromx' && cleanPhone && (!user.phone_number || user.phone_number.startsWith('+9100') || user.phone_number !== cleanPhone)) {
         try {
           await query('UPDATE users SET phone_number = $1 WHERE user_id = $2', [cleanPhone, user.user_id]);
           user.phone_number = cleanPhone;
@@ -463,13 +477,13 @@ router.post('/verify-otp', async (req, res) => {
           // ignore duplicate phone constraint if already assigned
         }
       }
-      // Update role if explicitly provided
-      if (targetRole && user.role !== targetRole) {
+      // Update role if explicitly provided (cannot escalate to super_admin without credentials)
+      if (targetRole && user.user_id !== 'usr_admin_carromx' && targetRole !== 'super_admin' && user.role !== targetRole) {
         await query('UPDATE users SET role = $1 WHERE user_id = $2', [targetRole, user.user_id]);
         user.role = targetRole;
       }
       // Update full_name if provided and current name is placeholder
-      if (fullName && fullName.trim() && (!user.full_name || user.full_name.startsWith('User_') || user.full_name.startsWith('Player_'))) {
+      if (fullName && fullName.trim() && user.user_id !== 'usr_admin_carromx' && (!user.full_name || user.full_name.startsWith('User_') || user.full_name.startsWith('Player_'))) {
         await query('UPDATE users SET full_name = $1 WHERE user_id = $2', [fullName.trim(), user.user_id]);
         user.full_name = fullName.trim();
       }
@@ -524,6 +538,10 @@ router.post('/switch-role', authenticateToken, async (req, res) => {
   const normalized = (role === 'help_desk' || role === 'super_admin') ? 'super_admin'
     : (role === 'organiser' || role === 'organizer') ? 'organizer'
     : 'player';
+
+  if (normalized === 'super_admin' && req.user.role !== 'super_admin' && req.user.user_id !== 'usr_admin_carromx') {
+    return res.status(403).json({ error: 'Super Admin access requires exclusive authentication.' });
+  }
 
   await query('UPDATE users SET role = $1 WHERE user_id = $2', [normalized, req.user.user_id]);
   req.user.role = normalized;

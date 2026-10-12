@@ -162,7 +162,7 @@ export function requireRoles(...allowedRoles) {
 
   return (req, res, next) => {
     if (!req.user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: 'Unauthorized: Please sign in to continue.' });
     }
     const rawRole = req.user.activeRole || req.user.role;
     const currentRole = normalizeRole(rawRole);
@@ -173,8 +173,17 @@ export function requireRoles(...allowedRoles) {
     }
 
     if (!normalizedAllowed.includes(currentRole)) {
+      if (normalizedAllowed.includes('organizer') && currentRole === 'player') {
+        return res.status(403).json({
+          error: 'Only registered Organisers or Admins can create and host tournaments. You can switch your account role to Organiser to host tournaments.',
+          requiresRole: 'organizer',
+          currentRole: 'player'
+        });
+      }
       return res.status(403).json({
-        error: `Forbidden: requires one of [${allowedRoles.join(', ')}] role. Current role is '${rawRole}'`
+        error: `Forbidden: requires one of [${allowedRoles.join(', ')}] role. Current role is '${rawRole}'`,
+        requiresRole: allowedRoles[0],
+        currentRole: rawRole
       });
     }
     next();

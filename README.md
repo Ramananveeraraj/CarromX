@@ -155,9 +155,10 @@ http://localhost:3000
 
 ### 3. Pre-Configured Demo Accounts (1-Click Login)
 The application comes pre-seeded with 4 dynamic role personas:
-- **Rahul Verma (Player)**: Phone `+919876543210`
-- **Priya Sharma (Organizer)**: Phone `+919876543211`
-- **Suresh Kumar (Official Referee)**: Phone `+919876543212`
-- **Amit Patel (Help Desk Admin)**: Phone `+919876543213`
+- **CarromX Admin (Super Admin)**: Email `carrromx@gmail.com`, Phone `+919876543210`
+- **Rahul Verma (Player)**: Phone `+919876543201`
+- **Priya Sharma (Organizer)**: Phone `+919876543202`
+- **Suresh Kumar (Official Referee)**: Phone `+919876543203`
+- **Amit Patel (Help Desk Admin)**: Phone `+919876543204`
 
 Or sign in with any custom phone number using the SMS dev simulator code `123456`.

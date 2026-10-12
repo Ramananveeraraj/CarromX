@@ -5,7 +5,7 @@ async function runTests() {
   let res = await fetch('http://localhost:3000/api/auth/verify-otp', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ phoneNumber: '+919876543210', otp: '123456', desiredRole: 'player' })
+    body: JSON.stringify({ phoneNumber: '+919876543211', otp: '123456', desiredRole: 'player' })
   });
   let data = await res.json();
   const playerToken = data.token;

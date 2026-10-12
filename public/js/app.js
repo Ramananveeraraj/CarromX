@@ -328,13 +328,33 @@ function updateHeaderProfile() {
       } else {
         roleBadgeHtml = `<span class="px-2.5 py-1 rounded-xl text-[10px] font-black uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm flex items-center gap-1"><i class="fa-solid fa-bullseye text-amber-400"></i> Player</span>`;
       }
+ 
+      let switchActionBtn = '';
+      if (normRole === 'player') {
+        switchActionBtn = `
+          <button onclick="confirmSwitchToOrganizerAndCreate()" class="px-2 py-1 rounded-xl bg-blue-500/10 hover:bg-blue-500/25 text-blue-300 border border-blue-500/30 text-[10px] font-bold transition flex items-center gap-1 shadow-sm" title="Switch to Organiser mode to host tournaments">
+            <i class="fa-solid fa-plus-circle text-blue-400"></i> Host Tournaments
+          </button>
+        `;
+      } else if (normRole === 'organizer') {
+        switchActionBtn = `
+          <button onclick="switchRole('player')" class="px-2 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 text-[10px] font-bold transition flex items-center gap-1 shadow-sm" title="Switch back to Player view">
+            <i class="fa-solid fa-bullseye text-amber-400"></i> Player View
+          </button>
+        `;
+      }
+
+      const displayContact = (currentUser.phoneNumber && !currentUser.phoneNumber.startsWith('+9100')) 
+        ? currentUser.phoneNumber 
+        : (currentUser.email && !currentUser.email.endsWith('@carromx.local') ? currentUser.email : '');
 
       authContainer.innerHTML = `
         <div class="flex items-center gap-2">
           ${roleBadgeHtml}
+          ${switchActionBtn}
           <div class="text-right hidden sm:block">
             <div class="text-xs font-bold text-white leading-tight">${escapeHtml(currentUser.fullName)}</div>
-            <div class="text-[10px] text-slate-400 font-mono leading-tight">${escapeHtml(currentUser.phoneNumber)}</div>
+            <div class="text-[10px] text-slate-400 font-mono leading-tight">${escapeHtml(displayContact)}</div>
           </div>
           <button onclick="logout()" class="px-2.5 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-rose-400 hover:text-rose-300 text-xs transition border border-slate-700 shadow flex items-center gap-1.5" title="Sign Out">
             <i class="fa-solid fa-right-from-bracket"></i>
@@ -466,8 +486,16 @@ function toggleRoleDropdown() {
  * Dynamic Role Switcher
  */
 async function switchRole(newRole) {
-  activeRole = newRole;
-  localStorage.setItem('carromx_role', newRole);
+  const normalized = (newRole === 'help_desk' || newRole === 'super_admin') ? 'super_admin'
+    : (newRole === 'organiser' || newRole === 'organizer') ? 'organizer'
+    : 'player';
+
+  activeRole = normalized;
+  localStorage.setItem('carromx_role', normalized);
+  if (currentUser) {
+    currentUser.role = normalized;
+    currentUser.activeRole = normalized;
+  }
   const dd = document.getElementById('roleDropdown');
   if (dd) dd.classList.add('hidden');
 
@@ -479,12 +507,16 @@ async function switchRole(newRole) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${currentToken}`
         },
-        body: JSON.stringify({ role: newRole })
+        body: JSON.stringify({ role: normalized })
       });
       if (res.ok) {
         const data = await res.json();
         currentToken = data.token;
         localStorage.setItem('carromx_token', currentToken);
+        if (currentUser) {
+          currentUser.role = data.role || normalized;
+          currentUser.activeRole = data.role || normalized;
+        }
       }
     } catch (e) {
       console.warn(e);
@@ -494,8 +526,8 @@ async function switchRole(newRole) {
   updateHeaderProfile();
   playStrikerSound();
 
-  if (newRole === 'organizer' || newRole === 'organiser') navigateTo('organizer');
-  else if (newRole === 'super_admin' || newRole === 'help_desk') navigateTo('superadmin');
+  if (normalized === 'organizer') navigateTo('organizer');
+  else if (normalized === 'super_admin') navigateTo('superadmin');
   else navigateTo('player');
 }
 
@@ -2883,14 +2915,62 @@ async function submitTournamentApplication() {
 // Backward compatibility alias
 const submitUpiRegistration = submitTournamentApplication;
 
-// Create Tournament Modal
+// Create Tournament Modal Controls & Role Guarding
 function openCreateTournamentModal() {
+  if (!currentToken || !currentUser) {
+    openAuthModal('regular');
+    selectDesiredRole('organizer');
+    showToastNotification('Please sign in or register as an Organiser to create tournaments.');
+    return;
+  }
+
+  const role = (currentUser?.role || activeRole || 'player').toLowerCase().trim();
+  if (role === 'player') {
+    openOrganizerRequiredModal();
+    return;
+  }
+
   const modal = document.getElementById('createTournamentModal');
   if (modal) modal.classList.remove('hidden');
   const startTimeInput = document.getElementById('newTourStartTime');
   if (startTimeInput && !startTimeInput.value) {
     startTimeInput.value = formatDateTimeLocal(new Date(Date.now() + 15 * 60 * 1000));
   }
+  const upiInput = document.getElementById('newTourUpi');
+  if (upiInput && upiInput.value === 'carromx.tournaments@upi') {
+    upiInput.value = '';
+  }
+}
+
+function openOrganizerRequiredModal() {
+  const modal = document.getElementById('organizerRequiredModal');
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeOrganizerRequiredModal() {
+  const modal = document.getElementById('organizerRequiredModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function confirmSwitchToOrganizerAndCreate() {
+  closeOrganizerRequiredModal();
+  showToastNotification('Switching to Organiser mode...');
+  await switchRole('organizer');
+  showToastNotification('✨ Switched to Organiser! Opening creation form...');
+  const modal = document.getElementById('createTournamentModal');
+  if (modal) modal.classList.remove('hidden');
+  const startTimeInput = document.getElementById('newTourStartTime');
+  if (startTimeInput && !startTimeInput.value) {
+    startTimeInput.value = formatDateTimeLocal(new Date(Date.now() + 15 * 60 * 1000));
+  }
+  const upiInput = document.getElementById('newTourUpi');
+  if (upiInput && upiInput.value === 'carromx.tournaments@upi') {
+    upiInput.value = '';
+  }
+}
+
+function promptSwitchToOrganizer() {
+  openOrganizerRequiredModal();
 }
 
 function closeCreateTournamentModal() {
@@ -2899,6 +2979,13 @@ function closeCreateTournamentModal() {
 
 async function handleCreateTournament(e) {
   e.preventDefault();
+
+  const role = (currentUser?.role || activeRole || 'player').toLowerCase().trim();
+  if (role === 'player') {
+    closeCreateTournamentModal();
+    openOrganizerRequiredModal();
+    return;
+  }
 
   const title = document.getElementById('newTourTitle').value.trim();
   const venue_address = document.getElementById('newTourVenue').value.trim();
@@ -2945,7 +3032,12 @@ async function handleCreateTournament(e) {
       fetchTournaments();
       loadOrganizerSuite();
     } else {
-      alert(`Error: ${data.error}`);
+      if (res.status === 403) {
+        closeCreateTournamentModal();
+        openOrganizerRequiredModal();
+      } else {
+        alert(`Error: ${data.error || 'Failed to create tournament'}`);
+      }
     }
   } catch (err) {
     alert(err.message);
@@ -4373,7 +4465,7 @@ async function handlePlayerEntrySubmit(e) {
 
 async function quickAddSamplePlayers() {
   const sampleRoster = [
-    { fullName: 'Rahul Verma', phoneNumber: '+919876543210', seedingRank: 1 },
+    { fullName: 'Rahul Verma', phoneNumber: '+919876543211', seedingRank: 1 },
     { fullName: 'Vikram Singh', phoneNumber: '+919876543215', seedingRank: 2 },
     { fullName: 'Anita Desai', phoneNumber: '+919876543214', seedingRank: 3 },
     { fullName: 'Karthik Nair', phoneNumber: '+919876543216', seedingRank: 4 },
