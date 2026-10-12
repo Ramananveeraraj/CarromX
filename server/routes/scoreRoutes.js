@@ -138,7 +138,7 @@ router.post('/fixtures/:id/score-event', authenticateToken, async (req, res) => 
         `INSERT INTO match_scores (
           score_id, fixture_id, set_number, player_1_points, player_2_points,
           is_set_completed, set_winner_id, logged_by_referee_id, updated_at
-        ) VALUES ($1, $2, $3, 0, 0, 0, NULL, $4, datetime('now'))`,
+        ) VALUES ($1, $2, $3, 0, 0, 0, NULL, $4, CURRENT_TIMESTAMP)`,
         [scoreId, fixtureId, setNumber, req.user.user_id]
       );
       scoreRes = await query('SELECT * FROM match_scores WHERE score_id = $1', [scoreId]);
@@ -172,7 +172,7 @@ router.post('/fixtures/:id/score-event', authenticateToken, async (req, res) => 
     // Update score
     await query(
       `UPDATE match_scores 
-       SET player_1_points = $1, player_2_points = $2, logged_by_referee_id = $3, updated_at = datetime('now')
+       SET player_1_points = $1, player_2_points = $2, logged_by_referee_id = $3, updated_at = CURRENT_TIMESTAMP
        WHERE score_id = $4`,
       [p1Points, p2Points, req.user.user_id, scoreRecord.score_id]
     );
@@ -243,7 +243,7 @@ router.post('/fixtures/:id/lock-set', authenticateToken, async (req, res) => {
 
     await query(
       `UPDATE match_scores 
-       SET is_set_completed = 1, set_winner_id = $1, logged_by_referee_id = $2, updated_at = datetime('now')
+       SET is_set_completed = 1, set_winner_id = $1, logged_by_referee_id = $2, updated_at = CURRENT_TIMESTAMP
        WHERE score_id = $3`,
       [winnerId, req.user.user_id, score.score_id]
     );
@@ -595,7 +595,7 @@ router.post('/fixtures/:id/score-sheet', authenticateToken, async (req, res) => 
         fixture_id, match_no, pool, age_group, game_type,
         umpire_name, chief_referee_name, toss_won_by, toss_choice,
         sheet_json, winner_id, final_score_summary, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, datetime('now'))
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP)
       ON CONFLICT(fixture_id) DO UPDATE SET
         match_no = excluded.match_no,
         pool = excluded.pool,
@@ -608,7 +608,7 @@ router.post('/fixtures/:id/score-sheet', authenticateToken, async (req, res) => 
         sheet_json = excluded.sheet_json,
         winner_id = excluded.winner_id,
         final_score_summary = excluded.final_score_summary,
-        updated_at = datetime('now')
+        updated_at = CURRENT_TIMESTAMP
     `, [
       fixtureId,
       sheet.matchNo || null,
@@ -664,12 +664,12 @@ router.post('/fixtures/:id/score-sheet', authenticateToken, async (req, res) => 
           const scoreId = 'scr_' + crypto.randomUUID().slice(0, 10);
           await query(`
             INSERT INTO match_scores (score_id, fixture_id, set_number, player_1_points, player_2_points, is_set_completed, set_winner_id, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, datetime('now'))
+            VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
           `, [scoreId, fixtureId, setNum, p1Pts, p2Pts, isCompleted, winnerId]);
         } else {
           await query(`
             UPDATE match_scores 
-            SET player_1_points = $1, player_2_points = $2, is_set_completed = $3, set_winner_id = $4, updated_at = datetime('now')
+            SET player_1_points = $1, player_2_points = $2, is_set_completed = $3, set_winner_id = $4, updated_at = CURRENT_TIMESTAMP
             WHERE fixture_id = $5 AND set_number = $6
           `, [p1Pts, p2Pts, isCompleted, winnerId, fixtureId, setNum]);
         }

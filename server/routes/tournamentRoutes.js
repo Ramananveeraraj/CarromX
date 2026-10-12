@@ -165,7 +165,7 @@ router.post('/', authenticateToken, requireRoles('organizer', 'help_desk'), asyn
         total_boards, max_points_per_set, boards_per_set, total_sets,
         set_time_limit_minutes, match_duration_minutes, entry_fee,
         status, verified_by_helpdesk, upi_id, rules_summary, banner_url, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'pending_verification', 0, $13, $14, $15, datetime('now'))`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'pending_verification', 0, $13, $14, $15, CURRENT_TIMESTAMP)`,
       [
         tournamentId,
         organizerId,
@@ -459,7 +459,7 @@ router.post('/:id/officials', authenticateToken, async (req, res) => {
       const systemRole = role === 'co_organizer' ? 'organizer' : 'umpire';
       await query(
         `INSERT INTO users (user_id, full_name, phone_number, email, role, created_at)
-         VALUES ($1, $2, $3, $4, $5, datetime('now'))`,
+         VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)`,
         [newUserId, cleanName, cleanPhone, userEmail, systemRole]
       );
       userRes = await query('SELECT * FROM users WHERE user_id = $1', [newUserId]);
@@ -491,7 +491,7 @@ router.post('/:id/officials', authenticateToken, async (req, res) => {
       await query(
         `INSERT INTO tournament_officials (
           official_id, tournament_id, user_id, official_role, assigned_board_number, assigned_at
-        ) VALUES ($1, $2, $3, $4, $5, datetime('now'))`,
+        ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)`,
         [officialId, id, user.user_id, role, assignedBoard]
       );
     }

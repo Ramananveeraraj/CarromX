@@ -182,7 +182,7 @@ router.post('/login', async (req, res) => {
           const newUserId = 'usr_admin_carromx';
           await query(
             `INSERT INTO users (user_id, full_name, phone_number, email, role, created_at)
-             VALUES ($1, $2, $3, $4, $5, datetime('now'))`,
+             VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)`,
             [newUserId, 'CarromX Admin', cleanPhone || '+919876543210', inputEmail || 'carrromx@gmail.com', 'super_admin']
           );
           const created = await query('SELECT * FROM users WHERE user_id = $1', [newUserId]);
@@ -256,7 +256,7 @@ router.post('/forgot-password', async (req, res) => {
       const newUserId = 'usr_admin_carromx';
       await query(
         `INSERT INTO users (user_id, full_name, phone_number, email, role, created_at)
-         VALUES ($1, $2, $3, $4, $5, datetime('now'))`,
+         VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)`,
         [newUserId, 'CarromX Admin', '+919876543210', 'carrromx@gmail.com', 'super_admin']
       );
       const created = await query('SELECT * FROM users WHERE user_id = $1', [newUserId]);
@@ -341,7 +341,7 @@ router.post('/reset-password', async (req, res) => {
       const newUserId = 'usr_admin_carromx';
       await query(
         `INSERT INTO users (user_id, full_name, phone_number, email, password_hash, role, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, datetime('now'))`,
+         VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)`,
         [newUserId, 'CarromX Admin', '+919876543210', 'carrromx@gmail.com', cleanPass, 'super_admin']
       );
       const created = await query('SELECT * FROM users WHERE user_id = $1', [newUserId]);
@@ -437,7 +437,7 @@ router.post('/verify-otp', async (req, res) => {
 
       await query(
         `INSERT INTO users (user_id, full_name, phone_number, email, role, created_at)
-         VALUES ($1, $2, $3, $4, $5, datetime('now'))`,
+         VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)`,
         [newUserId, name, userPhone, userEmail, assignedRole]
       );
 
@@ -664,7 +664,7 @@ router.post('/users', authenticateToken, async (req, res) => {
 
     await query(
       `INSERT INTO users (user_id, full_name, phone_number, email, role, created_at)
-       VALUES ($1, $2, $3, $4, $5, datetime('now'))`,
+       VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)`,
       [newUserId, fullName.trim(), cleanPhone, userEmail, normalizedRole]
     );
 

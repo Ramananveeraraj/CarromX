@@ -9,7 +9,7 @@ export async function seedData() {
     console.log('Creating primary Super Admin account for carrromx@gmail.com...');
     await query(
       `INSERT INTO users (user_id, full_name, phone_number, email, role, created_at)
-       VALUES ($1, $2, $3, $4, $5, datetime('now'))`,
+       VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)`,
       ['usr_admin_carromx', 'CarromX Admin', '+919876543210', 'carrromx@gmail.com', 'super_admin']
     );
   }

@@ -38,6 +38,8 @@ export async function query(sql, params = []) {
     if (sql.includes('?') && !sql.includes('$1')) {
       pgSql = sql.replace(/\?/g, () => `$${paramIndex++}`);
     }
+    // Universal SQLite-to-PostgreSQL syntax compatibility:
+    pgSql = pgSql.replace(/datetime\('now'\)/gi, 'CURRENT_TIMESTAMP');
     const res = await dbClient.query(pgSql, params);
     return { rows: res.rows, rowCount: res.rowCount };
   } else {
@@ -91,7 +93,7 @@ export async function initDb() {
         email TEXT,
         password_hash TEXT,
         role TEXT DEFAULT 'player',
-        created_at TEXT DEFAULT (datetime('now'))
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
       );
     `);
 
@@ -116,7 +118,7 @@ export async function initDb() {
         upi_id TEXT,
         rules_summary TEXT,
         banner_url TEXT,
-        created_at TEXT DEFAULT (datetime('now'))
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
       );
     `);
 
@@ -128,7 +130,7 @@ export async function initDb() {
         payment_reference_id TEXT,
         payment_status TEXT NOT NULL DEFAULT 'pending' CHECK (payment_status IN ('pending', 'approved', 'rejected')),
         seeding_rank INTEGER DEFAULT 0,
-        registered_at TEXT DEFAULT (datetime('now')),
+        registered_at TEXT DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(tournament_id, user_id)
       );
     `);
@@ -162,7 +164,7 @@ export async function initDb() {
         assignment_id TEXT PRIMARY KEY,
         fixture_id TEXT NOT NULL REFERENCES match_fixtures(fixture_id) ON DELETE CASCADE,
         referee_user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-        assigned_at TEXT DEFAULT (datetime('now')),
+        assigned_at TEXT DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(fixture_id, referee_user_id)
       );
     `);
@@ -177,7 +179,7 @@ export async function initDb() {
         is_set_completed INTEGER NOT NULL DEFAULT 0,
         set_winner_id TEXT REFERENCES participants(participant_id) ON DELETE SET NULL,
         logged_by_referee_id TEXT REFERENCES users(user_id),
-        updated_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(fixture_id, set_number)
       );
     `);
@@ -193,7 +195,7 @@ export async function initDb() {
         board_number INTEGER,
         opponent_name TEXT,
         status TEXT NOT NULL DEFAULT 'sent',
-        dispatched_at TEXT DEFAULT (datetime('now'))
+        dispatched_at TEXT DEFAULT CURRENT_TIMESTAMP
       );
     `);
 
@@ -218,7 +220,7 @@ export async function initDb() {
         sheet_json TEXT,
         winner_id TEXT,
         final_score_summary TEXT,
-        updated_at TEXT DEFAULT (datetime('now'))
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
       );
     `);
 
@@ -230,7 +232,7 @@ export async function initDb() {
         user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
         official_role TEXT NOT NULL CHECK (official_role IN ('co_organizer', 'umpire', 'chief_referee')),
         assigned_board_number INTEGER,
-        assigned_at TEXT DEFAULT (datetime('now')),
+        assigned_at TEXT DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(tournament_id, user_id, official_role)
       );
     `);

@@ -83,7 +83,7 @@ export async function runPreMatchScan() {
             `INSERT INTO notification_logs (
               notification_id, fixture_id, user_id, recipient_phone,
               notification_type, message, board_number, opponent_name, status, dispatched_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, datetime('now'))`,
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)`,
             [
               notifId1,
               match.fixture_id,
@@ -140,7 +140,7 @@ export async function runPreMatchScan() {
             `INSERT INTO notification_logs (
               notification_id, fixture_id, user_id, recipient_phone,
               notification_type, message, board_number, opponent_name, status, dispatched_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, datetime('now'))`,
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)`,
             [
               notifId2,
               match.fixture_id,

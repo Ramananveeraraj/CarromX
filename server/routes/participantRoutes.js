@@ -36,7 +36,7 @@ router.post('/tournaments/:id/register', authenticateToken, async (req, res) => 
       // If pending or rejected, allow updating payment reference
       await query(
         `UPDATE participants 
-         SET payment_reference_id = $1, payment_status = 'pending', registered_at = datetime('now')
+         SET payment_reference_id = $1, payment_status = 'pending', registered_at = CURRENT_TIMESTAMP
          WHERE participant_id = $2`,
         [paymentRef, p.participant_id]
       );
@@ -55,7 +55,7 @@ router.post('/tournaments/:id/register', authenticateToken, async (req, res) => 
       `INSERT INTO participants (
         participant_id, tournament_id, user_id, payment_reference_id,
         payment_status, seeding_rank, registered_at
-      ) VALUES ($1, $2, $3, $4, 'pending', 0, datetime('now'))`,
+      ) VALUES ($1, $2, $3, $4, 'pending', 0, CURRENT_TIMESTAMP)`,
       [participantId, tournamentId, userId, paymentRef]
     );
 
@@ -179,7 +179,7 @@ router.post('/tournaments/:id/players/entry', authenticateToken, async (req, res
       const userEmail = email && email.trim() ? email.trim() : `${newUserId}@carromx.local`;
       await query(
         `INSERT INTO users (user_id, full_name, phone_number, email, role, created_at)
-         VALUES ($1, $2, $3, $4, 'player', datetime('now'))`,
+         VALUES ($1, $2, $3, $4, 'player', CURRENT_TIMESTAMP)`,
         [newUserId, fullName.trim(), cleanPhone, userEmail]
       );
       userRes = await query('SELECT * FROM users WHERE user_id = $1', [newUserId]);
@@ -209,7 +209,7 @@ router.post('/tournaments/:id/players/entry', authenticateToken, async (req, res
         `INSERT INTO participants (
           participant_id, tournament_id, user_id, payment_reference_id,
           payment_status, seeding_rank, registered_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, datetime('now'))`,
+        ) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)`,
         [
           participantId,
           tournamentId,
