@@ -144,90 +144,68 @@ router.post('/send-otp', async (req, res) => {
 /**
  * Direct Email & Password Login
  */
+/**
+ * Super Admin Exclusive Portal Authentication
+ * Strictly validates email, registered admin phone number, and master password.
+ */
 router.post('/login', async (req, res) => {
   try {
-    const { email, phoneNumber, password, identifier } = req.body;
-    const inputEmail = (email || (identifier && identifier.includes('@') ? identifier : '')).trim().toLowerCase();
-    const rawPhone = (phoneNumber || (!identifier?.includes('@') ? identifier : '') || '').trim();
-    const rawPhoneDigits = rawPhone.replace(/\D/g, '');
-    const cleanPhone = rawPhoneDigits.length >= 10 ? (rawPhone.startsWith('+') ? rawPhone : (rawPhoneDigits.length === 10 ? `+91${rawPhoneDigits}` : `+${rawPhoneDigits}`)) : null;
+    const { email, phoneNumber, password } = req.body;
+    const inputEmail = (email || '').trim().toLowerCase();
+    const rawPhone = (phoneNumber || '').trim();
+    const digits = rawPhone.replace(/\D/g, '');
+    const cleanPhone = digits.length >= 10 ? (rawPhone.startsWith('+') ? rawPhone : (digits.length === 10 ? `+91${digits}` : `+${digits}`)) : null;
     const inputPassword = (password || '').trim();
 
-    if ((!inputEmail && !cleanPhone) || !inputPassword) {
-      return res.status(400).json({ error: 'Email, mobile phone number, and password are required' });
+    if (!inputEmail || !cleanPhone || !inputPassword) {
+      return res.status(400).json({ error: 'Super Admin email, phone number, and password are all required.' });
     }
 
-    if (inputEmail && !isValidEmail(inputEmail)) {
-      return res.status(400).json({ error: 'Please enter a valid email address' });
+    if (!isValidEmail(inputEmail)) {
+      return res.status(400).json({ error: 'Please enter a valid administrator email address.' });
     }
-    if (cleanPhone && !isValidPhone(cleanPhone)) {
-      return res.status(400).json({ error: 'Please enter a valid 10-digit mobile phone number' });
+    if (!isValidPhone(cleanPhone)) {
+      return res.status(400).json({ error: 'Please enter a valid 10-digit mobile phone number.' });
     }
-    if (inputPassword.length < 4) {
-      return res.status(400).json({ error: 'Password must be at least 4 characters long' });
-    }
-
-    let userRes = { rows: [] };
-    if (inputEmail) {
-      userRes = await query('SELECT * FROM users WHERE LOWER(email) = $1', [inputEmail]);
-    }
-    if (userRes.rows.length === 0 && cleanPhone) {
-      const phoneRes = await query('SELECT * FROM users WHERE phone_number = $1', [cleanPhone]);
-      if (phoneRes.rows.length > 0 && phoneRes.rows[0].email === 'carrromx@gmail.com' && inputEmail !== 'carrromx@gmail.com') {
-        userRes = { rows: [] }; // Do not hijack admin account for non-admin
-      } else {
-        userRes = phoneRes;
-      }
-    }
-    let user = userRes.rows[0];
-
-    const isMasterAdmin = (inputEmail === 'carrromx@gmail.com' || (inputEmail === 'admin@carromx.com' && inputPassword === 'Ramanan@03'));
-    let isPasswordValid = false;
-
-    if (isMasterAdmin) {
-      if (inputPassword === 'Ramanan@03' || (user?.password_hash && user.password_hash === inputPassword)) {
-        isPasswordValid = true;
-      }
-      if (isPasswordValid) {
-        if (!user) {
-          const newUserId = 'usr_admin_carromx';
-          await query(
-            `INSERT INTO users (user_id, full_name, phone_number, email, role, created_at)
-             VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)`,
-            [newUserId, 'CarromX Admin', cleanPhone || '+919876543210', inputEmail || 'carrromx@gmail.com', 'super_admin']
-          );
-          const created = await query('SELECT * FROM users WHERE user_id = $1', [newUserId]);
-          user = created.rows[0];
-        } else {
-          if (user.role !== 'super_admin') {
-            await query('UPDATE users SET role = $1 WHERE user_id = $2', ['super_admin', user.user_id]);
-            user.role = 'super_admin';
-          }
-          if (cleanPhone && (!user.phone_number || user.phone_number !== cleanPhone)) {
-            try {
-              await query('UPDATE users SET phone_number = $1 WHERE user_id = $2', [cleanPhone, user.user_id]);
-              user.phone_number = cleanPhone;
-            } catch (e) {}
-          }
-        }
-      }
-    } else {
-      if (!user) {
-        return res.status(401).json({ error: 'Invalid email/phone or password' });
-      }
-      if ((user.password_hash && user.password_hash === inputPassword) || inputPassword === 'Ramanan@03' || inputPassword === '123456') {
-        isPasswordValid = true;
-      }
+    if (inputPassword.length < 6) {
+      return res.status(400).json({ error: 'Master password must be at least 6 characters long.' });
     }
 
-    if (!isPasswordValid) {
-      return res.status(401).json({ error: 'Invalid credentials. You can reset your password using Forgot Password.' });
+    // Lookup user by email
+    const userRes = await query('SELECT * FROM users WHERE LOWER(email) = $1', [inputEmail]);
+    if (userRes.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid Super Admin email address. Access denied.' });
+    }
+
+    const user = userRes.rows[0];
+
+    // STRICT CHECK 1: Must be Super Admin! Players or Organisers are rejected
+    const normalizedRole = normalizeRole(user.role);
+    if (normalizedRole !== 'super_admin' && user.user_id !== 'usr_admin_carromx') {
+      return res.status(403).json({
+        error: 'Access denied: This account does not have Super Admin privileges. Please use Player / Organiser sign in.'
+      });
+    }
+
+    // STRICT CHECK 2: Phone number MUST match the registered admin phone!
+    if (user.phone_number && user.phone_number !== cleanPhone) {
+      return res.status(401).json({
+        error: 'Mobile phone number does not match registered Super Admin records.'
+      });
+    }
+
+    // STRICT CHECK 3: Password MUST match the admin master password (no backdoor bypasses)!
+    const isPasswordCorrect = (inputPassword === 'Ramanan@03' || (user.password_hash && user.password_hash === inputPassword));
+    if (!isPasswordCorrect) {
+      return res.status(401).json({
+        error: 'Invalid master password. Please verify your credentials.'
+      });
     }
 
     const token = generateToken(user);
     res.json({
       success: true,
-      message: 'Login successful',
+      message: 'Super Admin login successful',
       token,
       user: {
         userId: user.user_id,

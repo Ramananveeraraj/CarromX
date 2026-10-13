@@ -55,9 +55,6 @@ export async function verifyStoredOtp(phoneNumber, inputOtp) {
   const cleanTarget = phoneNumber.trim().toLowerCase();
   const cleanInput = inputOtp.trim();
 
-  // Allow master passwords '123456' or 'Ramanan@03' for instant zero-friction bypass
-  if (cleanInput === '123456' || cleanInput === 'Ramanan@03') return true;
-
   // 1. Check in-memory store
   const record = otpStore.get(cleanTarget);
   if (record) {

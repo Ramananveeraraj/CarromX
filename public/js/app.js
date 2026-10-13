@@ -2780,7 +2780,7 @@ async function submitSuperAdminLogin() {
   let isValid = true;
 
   if (!validatePhoneFormat(phone)) {
-    setInputValidationState(phoneEl, 'adminPhoneError', false, 'Please enter administrator 10-digit mobile phone number');
+    setInputValidationState(phoneEl, 'adminPhoneError', false, 'Please enter registered 10-digit administrator mobile number');
     phoneEl?.focus();
     isValid = false;
   } else {
@@ -2791,12 +2791,16 @@ async function submitSuperAdminLogin() {
     setInputValidationState(emailEl, 'adminEmailError', false, 'Please enter administrator email address');
     if (isValid) emailEl?.focus();
     isValid = false;
+  } else if (email !== 'carrromx@gmail.com') {
+    setInputValidationState(emailEl, 'adminEmailError', false, 'Only authorized Super Admin email (carrromx@gmail.com) is permitted in this portal');
+    if (isValid) emailEl?.focus();
+    isValid = false;
   } else {
     setInputValidationState(emailEl, 'adminEmailError', true);
   }
 
-  if (!key || key.length < 4) {
-    setInputValidationState(keyEl, 'adminKeyError', false, 'Please enter master password (min. 4 characters)');
+  if (!key || key.length < 6) {
+    setInputValidationState(keyEl, 'adminKeyError', false, 'Please enter master password (min. 6 characters)');
     if (isValid) keyEl?.focus();
     isValid = false;
   } else {
@@ -2820,6 +2824,12 @@ async function submitSuperAdminLogin() {
 
     const data = await res.json();
     if (res.ok) {
+      if (data.user?.role !== 'super_admin' && data.user?.role !== 'help_desk') {
+        setInputValidationState(emailEl, 'adminEmailError', false, 'Access denied: This account does not have Super Admin privileges.');
+        alert('Access denied: This account does not have Super Admin privileges. Please use Player / Organiser sign in.');
+        return;
+      }
+
       currentToken = data.token;
       currentUser = data.user;
       activeRole = 'super_admin';
@@ -2831,8 +2841,18 @@ async function submitSuperAdminLogin() {
       showToastNotification(`👑 Super Admin Signed In: ${currentUser.fullName || 'CarromX Admin'}`);
       navigateTo('superadmin');
     } else {
-      setInputValidationState(keyEl, 'adminKeyError', false, data.error || 'Invalid Super Admin credentials');
-      alert(data.error || 'Invalid Super Admin credentials');
+      const err = data.error || 'Invalid Super Admin credentials';
+      if (err.toLowerCase().includes('email')) {
+        setInputValidationState(emailEl, 'adminEmailError', false, err);
+        emailEl?.focus();
+      } else if (err.toLowerCase().includes('phone') || err.toLowerCase().includes('mobile')) {
+        setInputValidationState(phoneEl, 'adminPhoneError', false, err);
+        phoneEl?.focus();
+      } else {
+        setInputValidationState(keyEl, 'adminKeyError', false, err);
+        keyEl?.focus();
+      }
+      alert(err);
     }
   } catch (err) {
     console.error('Super Admin login error:', err);
