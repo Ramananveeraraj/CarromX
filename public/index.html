@@ -1738,35 +1738,17 @@
 
           <!-- "Who Are You?" Interactive Selector (Player vs Organiser) -->
           <div>
-            <label class="block text-xs font-bold text-slate-300 mb-1.5 flex items-center gap-1.5">
-              <i class="fa-solid fa-circle-question text-amber-500"></i> Who are you?
-            </label>
-            <div class="grid grid-cols-2 gap-2.5">
-              
-              <!-- Player Card Option -->
-              <div id="roleCardPlayer" onclick="selectDesiredRole('player')" class="cursor-pointer p-3 rounded-xl bg-slate-950 border-2 border-amber-500 text-left transition relative group hover:border-amber-400">
-                <div class="flex items-center justify-between mb-1">
-                  <span class="text-xl">🎯</span>
-                  <span id="roleCheckPlayer" class="w-4 h-4 rounded-full bg-amber-500 text-slate-950 text-[10px] flex items-center justify-center font-bold">✓</span>
+            <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-start gap-2.5">
+              <span class="text-xl leading-none">🎯</span>
+              <div>
+                <div class="font-extrabold text-white text-xs flex items-center gap-1.5">
+                  Player Registration
+                  <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[9px] font-bold uppercase">Standard</span>
                 </div>
-                <div class="font-extrabold text-white text-xs">Player</div>
                 <p class="text-[10px] text-slate-400 mt-0.5 leading-tight">
-                  Register with UPI, view personal schedules &amp; watch live score sheets.
+                  Public accounts register with Player access. Organiser privileges are granted exclusively by the Administrator.
                 </p>
               </div>
-
-              <!-- Organiser Card Option -->
-              <div id="roleCardOrganizer" onclick="selectDesiredRole('organizer')" class="cursor-pointer p-3 rounded-xl bg-slate-950 border border-slate-800 text-left transition relative group hover:border-blue-500">
-                <div class="flex items-center justify-between mb-1">
-                  <span class="text-xl">📋</span>
-                  <span id="roleCheckOrganizer" class="w-4 h-4 rounded-full bg-slate-800 text-slate-500 text-[10px] flex items-center justify-center font-bold"></span>
-                </div>
-                <div class="font-extrabold text-white text-xs">Organiser</div>
-                <p class="text-[10px] text-slate-400 mt-0.5 leading-tight">
-                  Host championships, random shuffle fixtures &amp; enter official score sheets.
-                </p>
-              </div>
-
             </div>
             <input type="hidden" id="authDesiredRole" value="player">
           </div>
@@ -2089,23 +2071,23 @@
   <div id="organizerRequiredModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-5 overflow-hidden">
     <div class="bg-slate-900 border border-amber-500/40 rounded-2xl max-w-md w-full shadow-2xl p-6 text-center space-y-4">
       <div class="w-14 h-14 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center text-2xl mx-auto shadow-inner">
-        <i class="fa-solid fa-crown"></i>
+        <i class="fa-solid fa-lock"></i>
       </div>
       <div>
         <h3 class="text-lg font-black text-white">Organiser Access Required</h3>
         <p class="text-xs text-slate-300 mt-2 leading-relaxed">
           Only registered <strong class="text-blue-400">Tournament Organisers</strong> or Admins can create and host tournaments.
         </p>
-        <p class="text-[11px] text-slate-400 mt-1.5">
-          You are currently signed in as a <strong class="text-amber-400">Player</strong>. Would you like to switch your account to Organiser mode now to create your tournament?
+        <div class="mt-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-left text-[11px] text-amber-300 leading-relaxed">
+          <i class="fa-solid fa-shield-halved mr-1 text-amber-400"></i> Role access is restricted to the Administrator. Player accounts cannot change roles automatically.
+        </div>
+        <p class="text-[11px] text-slate-400 mt-2.5">
+          To request Organiser permissions, please contact the CarromX Administrator at <a href="mailto:carrromx@gmail.com" class="text-blue-400 underline font-semibold">carrromx@gmail.com</a>.
         </p>
       </div>
-      <div class="flex flex-col sm:flex-row gap-2.5 pt-2">
-        <button type="button" onclick="closeOrganizerRequiredModal()" class="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition">
-          Cancel
-        </button>
-        <button type="button" onclick="confirmSwitchToOrganizerAndCreate()" class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs shadow-lg transition flex items-center justify-center gap-1.5 active:scale-95">
-          <i class="fa-solid fa-sitemap"></i> Switch to Organiser &amp; Create
+      <div class="pt-2">
+        <button type="button" onclick="closeOrganizerRequiredModal()" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition flex items-center justify-center gap-1.5 shadow">
+          <i class="fa-solid fa-check"></i> Understood
         </button>
       </div>
     </div>

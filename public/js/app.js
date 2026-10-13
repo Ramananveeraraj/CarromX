@@ -329,21 +329,6 @@ function updateHeaderProfile() {
         roleBadgeHtml = `<span class="px-2.5 py-1 rounded-xl text-[10px] font-black uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm flex items-center gap-1"><i class="fa-solid fa-bullseye text-amber-400"></i> Player</span>`;
       }
  
-      let switchActionBtn = '';
-      if (normRole === 'player') {
-        switchActionBtn = `
-          <button onclick="confirmSwitchToOrganizerAndCreate()" class="px-2 py-1 rounded-xl bg-blue-500/10 hover:bg-blue-500/25 text-blue-300 border border-blue-500/30 text-[10px] font-bold transition flex items-center gap-1 shadow-sm" title="Switch to Organiser mode to host tournaments">
-            <i class="fa-solid fa-plus-circle text-blue-400"></i> Host Tournaments
-          </button>
-        `;
-      } else if (normRole === 'organizer') {
-        switchActionBtn = `
-          <button onclick="switchRole('player')" class="px-2 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 text-[10px] font-bold transition flex items-center gap-1 shadow-sm" title="Switch back to Player view">
-            <i class="fa-solid fa-bullseye text-amber-400"></i> Player View
-          </button>
-        `;
-      }
-
       const displayContact = (currentUser.phoneNumber && !currentUser.phoneNumber.startsWith('+9100')) 
         ? currentUser.phoneNumber 
         : (currentUser.email && !currentUser.email.endsWith('@carromx.local') ? currentUser.email : '');
@@ -351,7 +336,6 @@ function updateHeaderProfile() {
       authContainer.innerHTML = `
         <div class="flex items-center gap-2">
           ${roleBadgeHtml}
-          ${switchActionBtn}
           <div class="text-right hidden sm:block">
             <div class="text-xs font-bold text-white leading-tight">${escapeHtml(currentUser.fullName)}</div>
             <div class="text-[10px] text-slate-400 font-mono leading-tight">${escapeHtml(displayContact)}</div>
@@ -486,6 +470,12 @@ function toggleRoleDropdown() {
  * Dynamic Role Switcher
  */
 async function switchRole(newRole) {
+  const isSuperAdmin = (currentUser?.role === 'super_admin' || currentUser?.role === 'help_desk' || currentUser?.userId === 'usr_admin_carromx');
+  if (!isSuperAdmin) {
+    showToastNotification('Role access is locked: Only Administrator can change user roles.');
+    return;
+  }
+
   const normalized = (newRole === 'help_desk' || newRole === 'super_admin') ? 'super_admin'
     : (newRole === 'organiser' || newRole === 'organizer') ? 'organizer'
     : 'player';
@@ -2919,8 +2909,7 @@ const submitUpiRegistration = submitTournamentApplication;
 function openCreateTournamentModal() {
   if (!currentToken || !currentUser) {
     openAuthModal('regular');
-    selectDesiredRole('organizer');
-    showToastNotification('Please sign in or register as an Organiser to create tournaments.');
+    showToastNotification('Please sign in. Organiser access is required to host tournaments.');
     return;
   }
 
@@ -2952,21 +2941,9 @@ function closeOrganizerRequiredModal() {
   if (modal) modal.classList.add('hidden');
 }
 
-async function confirmSwitchToOrganizerAndCreate() {
+function confirmSwitchToOrganizerAndCreate() {
   closeOrganizerRequiredModal();
-  showToastNotification('Switching to Organiser mode...');
-  await switchRole('organizer');
-  showToastNotification('✨ Switched to Organiser! Opening creation form...');
-  const modal = document.getElementById('createTournamentModal');
-  if (modal) modal.classList.remove('hidden');
-  const startTimeInput = document.getElementById('newTourStartTime');
-  if (startTimeInput && !startTimeInput.value) {
-    startTimeInput.value = formatDateTimeLocal(new Date(Date.now() + 15 * 60 * 1000));
-  }
-  const upiInput = document.getElementById('newTourUpi');
-  if (upiInput && upiInput.value === 'carromx.tournaments@upi') {
-    upiInput.value = '';
-  }
+  showToastNotification('Please contact Administrator at carrromx@gmail.com for Organiser access.');
 }
 
 function promptSwitchToOrganizer() {

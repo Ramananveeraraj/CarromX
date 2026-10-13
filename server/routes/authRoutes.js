@@ -1,6 +1,6 @@
 import express from 'express';
 import { query } from '../db.js';
-import { generateOtp, storeOtpForKeys, verifyStoredOtp, generateToken, authenticateToken, normalizeRole } from '../auth.js';
+import { generateOtp, storeOtpForKeys, verifyStoredOtp, generateToken, authenticateToken, normalizeRole, requireRoles } from '../auth.js';
 import crypto from 'crypto';
 import { sendOtpEmail, sendPasswordResetEmail } from '../emailService.js';
 
@@ -449,7 +449,9 @@ router.post('/verify-otp', async (req, res) => {
 
     if (userRes.rows.length === 0) {
       const isSuperAdminEmail = (cleanEmail === 'carrromx@gmail.com');
-      const assignedRole = isSuperAdminEmail ? 'super_admin' : (targetRole || 'player');
+      // Public registrations are strictly assigned 'player' by default. Only Super Admin email is 'super_admin'.
+      // Roles are controlled exclusively by the Administrator and never set by the user.
+      const assignedRole = isSuperAdminEmail ? 'super_admin' : 'player';
       const newUserId = isSuperAdminEmail ? 'usr_admin_carromx' : ('usr_' + crypto.randomUUID().slice(0, 10));
       const name = fullName?.trim() || (cleanEmail ? cleanEmail.split('@')[0] : (cleanPhone ? `User_${cleanPhone.slice(-4)}` : 'Player'));
       const userEmail = cleanEmail || `${newUserId}@carromx.local`;
@@ -505,11 +507,7 @@ router.post('/verify-otp', async (req, res) => {
           // ignore duplicate phone constraint if already assigned
         }
       }
-      // Update role if explicitly provided (cannot escalate to super_admin without credentials)
-      if (targetRole && user.user_id !== 'usr_admin_carromx' && targetRole !== 'super_admin' && user.role !== targetRole) {
-        await query('UPDATE users SET role = $1 WHERE user_id = $2', [targetRole, user.user_id]);
-        user.role = targetRole;
-      }
+      // Note: User roles are preserved and NEVER changed automatically on login. Only Admin can change roles.
       // Update full_name if provided and current name is placeholder
       if (fullName && fullName.trim() && user.user_id !== 'usr_admin_carromx' && (!user.full_name || user.full_name.startsWith('User_') || user.full_name.startsWith('Player_'))) {
         await query('UPDATE users SET full_name = $1 WHERE user_id = $2', [fullName.trim(), user.user_id]);
@@ -555,8 +553,16 @@ router.get('/me', authenticateToken, async (req, res) => {
 
 /**
  * Switch dynamic active role
+ * Restricted to Super Admin: Only Administrator has permission to switch view modes.
  */
 router.post('/switch-role', authenticateToken, async (req, res) => {
+  const currentRole = normalizeRole(req.user.role);
+  if (currentRole !== 'super_admin' && req.user.user_id !== 'usr_admin_carromx') {
+    return res.status(403).json({
+      error: 'Access denied: Only the Administrator can change user roles.'
+    });
+  }
+
   const { role } = req.body;
   const validRoles = ['player', 'organizer', 'organiser', 'help_desk', 'super_admin'];
   if (!validRoles.includes(role)) {
@@ -567,19 +573,12 @@ router.post('/switch-role', authenticateToken, async (req, res) => {
     : (role === 'organiser' || role === 'organizer') ? 'organizer'
     : 'player';
 
-  if (normalized === 'super_admin' && req.user.role !== 'super_admin' && req.user.user_id !== 'usr_admin_carromx') {
-    return res.status(403).json({ error: 'Super Admin access requires exclusive authentication.' });
-  }
-
-  await query('UPDATE users SET role = $1 WHERE user_id = $2', [normalized, req.user.user_id]);
-  req.user.role = normalized;
   req.user.activeRole = normalized;
-
   const newToken = generateToken(req.user);
 
   res.json({
     success: true,
-    message: `Role switched to ${normalized}`,
+    message: `Active view switched to ${normalized}`,
     role: normalized,
     token: newToken
   });
@@ -632,9 +631,9 @@ router.get('/demo-users', async (req, res) => {
 });
 
 /**
- * List all users with optional role & search filters (For Super Admin & Organiser)
+ * List all users with optional role & search filters (For Super Admin ONLY)
  */
-router.get('/users', authenticateToken, async (req, res) => {
+router.get('/users', authenticateToken, requireRoles('super_admin'), async (req, res) => {
   try {
     const { role, q } = req.query;
     let sql = 'SELECT user_id, full_name, phone_number, email, role, created_at FROM users WHERE 1=1';
@@ -681,9 +680,9 @@ router.get('/users', authenticateToken, async (req, res) => {
 });
 
 /**
- * Add / Create a new user with assigned role (Super Admin, Organiser, Player)
+ * Add / Create a new user with assigned role (Super Admin ONLY)
  */
-router.post('/users', authenticateToken, async (req, res) => {
+router.post('/users', authenticateToken, requireRoles('super_admin'), async (req, res) => {
   try {
     const { fullName, phoneNumber, email, role = 'player' } = req.body;
 
@@ -735,9 +734,9 @@ router.post('/users', authenticateToken, async (req, res) => {
 });
 
 /**
- * Update any user's role dynamically (Super Admin / Organiser)
+ * Update any user's role dynamically (Super Admin ONLY)
  */
-router.put('/users/:id/role', authenticateToken, async (req, res) => {
+router.put('/users/:id/role', authenticateToken, requireRoles('super_admin'), async (req, res) => {
   try {
     const { id } = req.params;
     const { role } = req.body;
@@ -770,14 +769,14 @@ router.put('/users/:id/role', authenticateToken, async (req, res) => {
 });
 
 /**
- * Delete a user
+ * Delete a user (Super Admin ONLY)
  */
-router.delete('/users/:id', authenticateToken, async (req, res) => {
+router.delete('/users/:id', authenticateToken, requireRoles('super_admin'), async (req, res) => {
   try {
     const { id } = req.params;
     
     // Prevent deleting the primary admin account
-    if (id === 'usr_help_1') {
+    if (id === 'usr_help_1' || id === 'usr_admin_carromx') {
       return res.status(400).json({ error: 'Cannot delete default Super Admin account.' });
     }
 
