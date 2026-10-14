@@ -51,11 +51,14 @@ CREATE TABLE IF NOT EXISTS participants (
     CONSTRAINT uq_participant_tournament_user UNIQUE (tournament_id, user_id)
 );
 
--- 4. boards Table
+-- 4. boards Table (Physical Boards with Security PINs)
 CREATE TABLE IF NOT EXISTS boards (
     board_id VARCHAR(64) PRIMARY KEY,
     tournament_id VARCHAR(64) NOT NULL REFERENCES tournaments(tournament_id) ON DELETE CASCADE,
     board_number INT NOT NULL,
+    access_pin VARCHAR(10) DEFAULT '1234',
+    current_umpire_id VARCHAR(64) REFERENCES users(user_id) ON DELETE SET NULL,
+    is_locked_pin BOOLEAN NOT NULL DEFAULT TRUE,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     CONSTRAINT uq_tournament_board UNIQUE (tournament_id, board_number)
 );
@@ -161,6 +164,20 @@ CREATE TABLE IF NOT EXISTS match_score_sheets (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 12. match_disputes Table (Live Match Disputes & Protests)
+CREATE TABLE IF NOT EXISTS match_disputes (
+    dispute_id VARCHAR(64) PRIMARY KEY,
+    fixture_id VARCHAR(64) NOT NULL REFERENCES match_fixtures(fixture_id) ON DELETE CASCADE,
+    raised_by_user_id VARCHAR(64) NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    role_of_raiser VARCHAR(50) NOT NULL, -- 'referee', 'player'
+    reason TEXT NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'RESOLVED', 'DISMISSED')),
+    resolution_notes TEXT,
+    resolved_by_user_id VARCHAR(64) REFERENCES users(user_id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    resolved_at TIMESTAMP
+);
+
 -- Indexes for optimal lookup performance
 CREATE INDEX IF NOT EXISTS idx_tournaments_organizer ON tournaments(organizer_id);
 CREATE INDEX IF NOT EXISTS idx_tournaments_status ON tournaments(status);
@@ -174,4 +191,6 @@ CREATE INDEX IF NOT EXISTS idx_tournament_officials_tour ON tournament_officials
 CREATE INDEX IF NOT EXISTS idx_tournament_officials_user ON tournament_officials(user_id);
 CREATE INDEX IF NOT EXISTS idx_notif_fixture_user ON notification_logs(fixture_id, user_id);
 CREATE INDEX IF NOT EXISTS idx_otp_expires ON otp_verifications(expires_at);
+CREATE INDEX IF NOT EXISTS idx_disputes_fixture ON match_disputes(fixture_id);
+CREATE INDEX IF NOT EXISTS idx_disputes_status ON match_disputes(status);
 

@@ -185,13 +185,14 @@ router.post('/', authenticateToken, requireRoles('organizer', 'help_desk'), asyn
       ]
     );
 
-    // Automatically create boards (Board 1 to Board N)
+    // Automatically create boards (Board 1 to Board N) with secure 4-digit PINs
     for (let i = 1; i <= numBoards; i++) {
       const boardId = `brd_${tournamentId}_${i}`;
+      const pin = String(1000 + (i * 137) % 9000).padStart(4, '0');
       await query(
-        `INSERT INTO boards (board_id, tournament_id, board_number, is_active)
-         VALUES ($1, $2, $3, true)`,
-        [boardId, tournamentId, i]
+        `INSERT INTO boards (board_id, tournament_id, board_number, access_pin, is_locked_pin, is_active)
+         VALUES ($1, $2, $3, $4, true, true)`,
+        [boardId, tournamentId, i, pin]
       );
     }
 

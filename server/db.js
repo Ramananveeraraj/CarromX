@@ -103,7 +103,10 @@ export async function initDb() {
       "ALTER TABLE match_fixtures ADD COLUMN IF NOT EXISTS chief_referee_name VARCHAR(150);",
       "ALTER TABLE match_fixtures ADD COLUMN IF NOT EXISTS set_time_limit_minutes INT DEFAULT 25;",
       "ALTER TABLE match_fixtures ADD COLUMN IF NOT EXISTS match_duration_minutes INT DEFAULT 45;",
-      "ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);"
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);",
+      "ALTER TABLE boards ADD COLUMN IF NOT EXISTS access_pin VARCHAR(10) DEFAULT '1234';",
+      "ALTER TABLE boards ADD COLUMN IF NOT EXISTS current_umpire_id VARCHAR(64) REFERENCES users(user_id) ON DELETE SET NULL;",
+      "ALTER TABLE boards ADD COLUMN IF NOT EXISTS is_locked_pin BOOLEAN DEFAULT TRUE;"
     ];
 
     for (const sql of pgMigrations) {
@@ -297,9 +300,38 @@ export async function initDb() {
           await query(`ALTER TABLE match_fixtures ADD COLUMN ${col.name} ${col.def};`);
         }
       }
+
+      // Boards access pin migration helper
+      const boardColsRes = await query("PRAGMA table_info(boards);");
+      const boardExisting = boardColsRes.rows.map(r => r.name);
+      if (!boardExisting.includes('access_pin')) {
+        await query("ALTER TABLE boards ADD COLUMN access_pin TEXT DEFAULT '1234';");
+      }
+      if (!boardExisting.includes('current_umpire_id')) {
+        await query("ALTER TABLE boards ADD COLUMN current_umpire_id TEXT;");
+      }
+      if (!boardExisting.includes('is_locked_pin')) {
+        await query("ALTER TABLE boards ADD COLUMN is_locked_pin INTEGER DEFAULT 1;");
+      }
     } catch (migErr) {
       console.warn('Migration helper notice:', migErr.message);
     }
+
+    // Live Match Disputes & Protests table
+    await query(`
+      CREATE TABLE IF NOT EXISTS match_disputes (
+        dispute_id TEXT PRIMARY KEY,
+        fixture_id TEXT NOT NULL REFERENCES match_fixtures(fixture_id) ON DELETE CASCADE,
+        raised_by_user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+        role_of_raiser TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'RESOLVED', 'DISMISSED')),
+        resolution_notes TEXT,
+        resolved_by_user_id TEXT REFERENCES users(user_id),
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        resolved_at TEXT
+      );
+    `);
 
     // OTP verification persistence (Survives server restarts and workers)
     await query(`
