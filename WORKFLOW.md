@@ -1,195 +1,290 @@
-# CARROMX: APP DEVELOPMENT WORKFLOW & TECHNICAL SPECIFICATION
-## Phase 1 Execution Blueprint & Operational Roadmap
+# CarromX: Comprehensive Workflow & Technical Implementation Guide
 
-This document serves as the master engineering blueprint and operational workflow for **CarromX**. It contains the relational entity-relationship model, database schema specifications, role-based access control matrix, sprint milestone roadmap (Sprints 1–6), and the MVP Definition of Done.
+**Document Version:** 2.0  
+**Status:** Production Ready  
+**Last Updated:** October 2026  
+**Repository:** [CarromX GitHub](https://github.com/Ramananveeraraj/CarromX)
 
 ---
 
-## 1. Database Architecture & Relationships Overview
+## 1. System Architecture Overview
 
+CarromX is a tournament management platform designed for carrom tournaments ranging from local community clubs to state championships and official AICF (All India Carrom Federation) tournaments.
+
+### Architecture Diagram
+
+```mermaid
+graph TD
+    subgraph Client Layer
+        WebSPA["Web Client (Vanilla JS + Tailwind CSS)"]
+        FlutterApp["Mobile App (Flutter / Android AAB)"]
+    end
+
+    subgraph API & Gateway Layer
+        ExpressServer["Express.js Server (Node.js ESM)"]
+        WSServer["WebSocket Server (ws)"]
+        AuthMiddleware["JWT & RBAC Middleware"]
+    end
+
+    subgraph Data & Storage Layer
+        PostgresDB["Production: PostgreSQL (Render Managed)"]
+        SQLiteDB["Development: SQLite3 (carromx.db)"]
+        UniversalAdapter["Universal DB Adapter (server/db.js)"]
+    end
+
+    subgraph Background Services
+        NotifWorker["10-Min Pre-Match Worker"]
+        EmailService["Nodemailer SMTP + Timeout Fallback"]
+        SeedEngine["Runtime Migration & Seeder"]
+    end
+
+    WebSPA --> ExpressServer
+    WebSPA <--> WSServer
+    FlutterApp --> ExpressServer
+
+    ExpressServer --> AuthMiddleware
+    AuthMiddleware --> UniversalAdapter
+    UniversalAdapter --> PostgresDB
+    UniversalAdapter --> SQLiteDB
+
+    ExpressServer --> NotifWorker
+    ExpressServer --> EmailService
+    ExpressServer --> SeedEngine
 ```
-[USERS] 1 ────────────< [TOURNAMENTS] (Hosted by organizer)
-  │                            │
-  │ (Plays in)                 │ (Configures)
-  ▼                            ▼
-[PARTICIPANTS]           [BOARDS] & [MATCH_FIXTURES]
-  │                            │
-  │ (Assigned to match)        │ (Officiated by)
-  ▼                            ▼
-[MATCH_FIXTURES] 1 ───────< [MATCH_OFFICIALS / REFEREES]
-  │
-  │ (Logs digital score sheet)
-  ▼
-[MATCH_SCORES]
+
+### Technology Stack
+
+| Layer | Technologies | Key Responsibilities |
+| :--- | :--- | :--- |
+| **Frontend Web** | HTML5, Tailwind CSS, Vanilla ES6+ JS, FontAwesome 6 | Responsive SPA, bracket visualizers, AICF score sheet, audio effects |
+| **Mobile App** | Flutter 3.x, Dart, Android SDK 34 | Native Android APK/AAB for Google Play Store, push notification listeners |
+| **Backend Server** | Node.js (v20+), Express.js 4.x (ESM) | REST API endpoints, RBAC enforcement, fixture generation engine |
+| **Realtime Gateway** | `ws` (WebSockets) | Sub-second broadcast of live scores, board assignments, and status locks |
+| **Database** | PostgreSQL (Render) / SQLite3 (Local) | Relational persistence, transactional data integrity, schema migrations |
+| **Email / Alerts** | Nodemailer (SMTP) + Background Worker | 6-digit OTP delivery, 10-minute pre-match schedule dispatches |
+
+---
+
+## 2. Role-Based Access Control (RBAC) Matrix
+
+CarromX operates on a role hierarchy. User roles are controlled by the Administrator; player accounts cannot self-escalate or change roles automatically.
+
+```mermaid
+graph TD
+    SuperAdmin["👑 Super Admin (Full Platform Control)"]
+    HelpDesk["🛡️ Help Desk Admin (Verification & Auditing)"]
+    Organiser["📂 Tournament Organiser (Host & Bracket Manager)"]
+    Referee["⚖️ Umpire / Referee (Digital Score Sheet)"]
+    Player["🎯 Player (Participant & Spectator)"]
+
+    SuperAdmin --> HelpDesk
+    SuperAdmin --> Organiser
+    SuperAdmin --> Referee
+    SuperAdmin --> Player
+    HelpDesk --> Player
+    Organiser --> Referee
+    Organiser --> Player
 ```
 
-### Relational Schema Specifications
+### Permission Matrix
 
-#### 1. `users` Table
-Stores all registered users. Role management is handled dynamically via permissions or a role flag since any player can potentially host a tournament.
-- `user_id` (PK, VARCHAR/UUID): Unique identifier for the user.
-- `full_name` (VARCHAR): Full name of the user.
-- `phone_number` (VARCHAR, Unique): Phone number with country code, used for login & SMS push notifications.
-- `email` (VARCHAR): Optional contact email address.
-- `role` (VARCHAR): Default `'player'`, dynamically switches to `'organizer'`, `'referee'`, or `'help_desk'`.
-- `created_at` (TIMESTAMP): Account registration timestamp.
+| Operation / Endpoint | Player | Referee / Umpire | Organiser | Help Desk | Super Admin |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| Browse Tournaments & Live Scores | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Register & Submit UPI Payment | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Receive 10-Min Pre-Match Notifications | ✓ | — | — | — | — |
+| Create Tournaments & Physical Boards | — | — | ✓ | — | ✓ |
+| Verify & Publish Tournaments | — | — | — | ✓ | ✓ |
+| Review & Approve Player UPI Payments | — | — | ✓ *(Own)* | — | ✓ |
+| Generate Fixtures & Seed Brackets | — | — | ✓ *(Own)* | — | ✓ |
+| Swap / Interchange Players in Fixtures | — | — | ✓ *(Own)* | — | ✓ |
+| Fill Official AICF Digital Score Sheet | — | ✓ *(Assigned)* | ✓ *(Own)* | — | ✓ |
+| Override Locked Scores | — | — | ✓ *(Own)* | — | ✓ |
+| Manage User Roles in Directory | — | — | — | — | ✓ |
 
-#### 2. `tournaments` Table
-Stores tournament configurations created by organizers, including board limits and match scoring rules.
-- `tournament_id` (PK, VARCHAR/UUID): Unique identifier for the tournament.
-- `organizer_id` (FK -> `users.user_id`): User who created and manages the tournament.
-- `title` (VARCHAR): Tournament title (e.g., *"Bangalore Open Carrom Championship 2026"*).
-- `venue_address` (TEXT): Physical location or arena address.
-- `format` (ENUM): `'knockout'`, `'round_robin'`, or `'double_elimination'`.
-- `total_boards` (INT): Number of physical boards available (e.g., 4 or 8 boards).
-- `max_points_per_set` (INT): Max points to win a set (e.g., 25 points ICF standard).
-- `boards_per_set` (INT): Board cap per set (e.g., 8 boards limit).
-- `total_sets` (INT): Number of sets to play (e.g., Best of 3 sets).
-- `entry_fee` (DECIMAL): Entry fee in INR (₹).
-- `status` (ENUM): `'pending_verification'`, `'published'`, `'ongoing'`, `'completed'`.
-- `verified_by_helpdesk` (BOOLEAN): Defaults to `FALSE` until reviewed by Help Desk Admin.
-- `upi_id` (VARCHAR): Organizer UPI VPA for Method 1 external registration.
-- `rules_summary` (TEXT): Custom guidelines or ICF standard rules.
-- `created_at` (TIMESTAMP): Creation timestamp.
-
-#### 3. `participants` Table
-Links players to tournaments they have registered and submitted external payment proof for.
-- `participant_id` (PK, VARCHAR/UUID): Unique participant registration ID.
-- `tournament_id` (FK -> `tournaments.tournament_id`): Tournament enrolled in.
-- `user_id` (FK -> `users.user_id`): User participating.
-- `payment_reference_id` (VARCHAR): 12-digit UPI UTR transaction reference number or receipt URL.
-- `payment_status` (ENUM): `'pending'`, `'approved'`, `'rejected'`.
-- `seeding_rank` (INT): Organizer-assigned seeding rank for bracket placement.
-- `registered_at` (TIMESTAMP): Registration timestamp.
-
-#### 4. `boards` Table
-Represents physical boards available at the tournament venue.
-- `board_id` (PK, VARCHAR/UUID): Unique board identifier.
-- `tournament_id` (FK -> `tournaments.tournament_id`): Tournament the board belongs to.
-- `board_number` (INT): Board identifier (Board 1, Board 2, etc.).
-- `is_active` (BOOLEAN): Whether the board is currently active/operational.
-
-#### 5. `match_fixtures` Table
-Core engine table storing matchups, schedules, board assignments, and status.
-- `fixture_id` (PK, VARCHAR/UUID): Unique match fixture identifier.
-- `tournament_id` (FK -> `tournaments.tournament_id`): Parent tournament.
-- `round_number` (INT): Round index (Round 1, Quarterfinals, Semifinals, Finals).
-- `board_id` (FK -> `boards.board_id`, Nullable): Physical board assigned to this match.
-- `player_1_id` (FK -> `participants.participant_id`): Participant in slot 1.
-- `player_2_id` (FK -> `participants.participant_id`): Participant in slot 2.
-- `scheduled_start_time` (TIMESTAMP): Scheduled match start time.
-- `match_status` (ENUM): `'scheduled'`, `'live'`, `'completed'`, `'disputed'`.
-- `winner_participant_id` (FK -> `participants.participant_id`, Nullable): Winner of match.
-
-#### 6. `match_officials` Table (Referees)
-Assigns a specific referee to a board or fixture to lock down score entry permissions.
-- `assignment_id` (PK, VARCHAR/UUID): Unique assignment ID.
-- `fixture_id` (FK -> `match_fixtures.fixture_id`): Match being officiated.
-- `referee_user_id` (FK -> `users.user_id`): User assigned as the referee.
-- `assigned_at` (TIMESTAMP): Assignment timestamp.
-
-#### 7. `match_scores` Table (Digital Score Sheet)
-Logs granular set-by-set points entered exclusively by the authorized referee.
-- `score_id` (PK, VARCHAR/UUID): Unique score entry record.
-- `fixture_id` (FK -> `match_fixtures.fixture_id`): Match fixture.
-- `set_number` (INT): Set index (1, 2, 3).
-- `player_1_points` (INT): Points accumulated by Player 1 in this set.
-- `player_2_points` (INT): Points accumulated by Player 2 in this set.
-- `is_set_completed` (BOOLEAN): `TRUE` once locked by referee; locks write permissions.
-- `set_winner_id` (FK -> `participants.participant_id`, Nullable): Winner of this set.
-- `logged_by_referee_id` (FK -> `users.user_id`): User who logged/locked the score.
-- `updated_at` (TIMESTAMP): Last updated timestamp.
-
-#### 8. `notification_logs` Table (Pre-Match Push Engine)
-Tracks 10-minute automated reminders dispatched to players.
-- `notification_id` (PK, VARCHAR/UUID): Unique notification tracking ID.
-- `fixture_id` (FK -> `match_fixtures.fixture_id`): Scheduled match.
-- `user_id` (FK -> `users.user_id`): Recipient user.
-- `recipient_phone` (VARCHAR): Mobile number notified.
-- `notification_type` (VARCHAR): `'10_min_pre_match'`.
-- `message` (TEXT): Full alert text with board number, opponent, and time.
-- `board_number` (INT): Board number assigned.
-- `opponent_name` (VARCHAR): Name of opposing player.
-- `status` (VARCHAR): `'sent'`.
-- `dispatched_at` (TIMESTAMP): Dispatch timestamp.
+> [!IMPORTANT]
+> **Strict Role Guarding:** When a user registers or signs in via OTP, their role defaults strictly to `player`. Role upgrades to `organizer`, `referee`, or `help_desk` can only be granted by the **Super Admin** through the Super Admin Master Directory.
 
 ---
 
-## 2. Core User Roles & Permissions Matrix
+## 3. Authentication & Security Workflows
 
-| Feature / Action | Player | Referee / Official | Organizer | Help Desk Admin |
-| :--- | :---: | :---: | :---: | :---: |
-| **Register for Tournaments (Method 1 UPI)** | ✓ | ✓ | ✓ | — |
-| **View Fixtures & Live Scores** | ✓ | ✓ | ✓ | ✓ |
-| **Receive 10-Min Pre-Match Alerts** | ✓ | — | — | — |
-| **Create Tournaments & Boards** | — | — | ✓ | — |
-| **Enter & Lock Match Scores** | — | ✓ *(Assigned Boards)* | ✓ *(Override)* | — |
-| **Swap / Interchange Players in Fixtures** | — | — | ✓ | — |
-| **Review & Approve UPI Reference UTRs** | — | — | ✓ | — |
-| **Verify & Publish Tournaments** | — | — | — | ✓ |
-| **Resolve Disputes & Audit Scores** | — | — | ✓ | ✓ |
+CarromX features dual authentication pathways:
+1. **Public Player / Organiser Pathway**: Fast OTP authentication.
+2. **Master Super Admin Pathway**: Triple-lock credential verification.
 
----
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as User / Player
+    participant Client as CarromX Web / App
+    participant Server as Auth Server (/api/auth)
+    participant DB as Database
 
-## 3. How Relational Logic Powers CarromX Core Features
+    alt Player / Organiser Authentication
+        User->>Client: Enters Mobile Number & Email
+        Client->>Server: POST /api/auth/send-otp
+        Server->>Server: Generate cryptographically random 6-digit OTP
+        Server->>User: Sends email via SMTP (dev code fallback in response)
+        User->>Client: Enters 6-digit OTP
+        Client->>Server: POST /api/auth/verify-otp
+        Server->>DB: Check phone ownership (Protects Admin Phone)
+        Server->>DB: Find or create user record (role = 'player')
+        Server->>Client: Returns signed JWT token + user profile
+    else Super Admin Master Portal
+        User->>Client: Selects "Master Admin Suite"
+        User->>Client: Enters email, phone (+919600436921), and password (Ramanan@03)
+        Client->>Server: POST /api/auth/login
+        Server->>DB: Verify email is carrromx@gmail.com
+        Server->>Server: Verify mobile matches +919600436921
+        Server->>Server: Verify master password matches Ramanan@03
+        Server->>Client: Returns Super Admin JWT token
+    end
+```
 
-1. **The 10-Minute Reminder**:
-   - An autonomous background worker runs every 60 seconds.
-   - It queries `match_fixtures` joining `tournaments`, `boards`, and `participants` where `scheduled_start_time` is within 10 minutes from `now`.
-   - Before dispatching, it checks `notification_logs` to ensure no duplicates.
-   - It sends notifications to `player_1_id` and `player_2_id` containing the physical board number, scheduled time, and opponent's name.
+### Security Safeguards
 
-2. **Referee Score Auditing & Real-Time Score Locking**:
-   - When a referee enters points on `/api/fixtures/:id/score-event`, the server queries `match_officials` to confirm `referee_user_id` matches the assigned fixture.
-   - Once a set is finalized (`is_set_completed = true`), referee write permissions are immediately locked.
-   - Only users with the `'organizer'` role can execute an Organizer Score Override (`POST /api/fixtures/:id/organizer-override`) to unlock or adjust scores.
-
-3. **Live Audience Updates**:
-   - The WebSocket gateway broadcasts score updates, set locks, and match completions to all connected clients in sub-second time.
-   - Spectators and players see points update live without refreshing their browser.
-
----
-
-## 4. Development Sprint Roadmap (Phase 1 Milestones)
-
-### Sprint 1: Authentication & Role Management (Week 1–2)
-- **Task 1.1**: Build phone OTP login screen using SMS verification with JWT token issuing.
-- **Task 1.2**: Implement user profile creation (`users` table) storing name, phone number, and default "Player" role.
-- **Task 1.3**: Set up dynamic role access so users can switch to "Organizer Mode" or be assigned "Referee" status.
-
-### Sprint 2: Tournament Setup & SEO Landing Pages (Week 3–4)
-- **Task 2.1**: Build Organizer Tournament Creation Form capturing title, venue, total physical boards, format (`knockout`, `round_robin`, `double_elimination`), and match rules (sets, points limit, boards per set).
-- **Task 2.2**: Build SEO-optimized public web page generator (`/tournament/:id`) with OpenGraph, Twitter cards, and Schema.org `SportsEvent` JSON-LD.
-- **Task 2.3**: Implement Help Desk Admin panel to review pending tournaments and toggle the "Verified by CarromX" badge.
-
-### Sprint 3: Player Registration & Payment Flow (Week 5)
-- **Task 3.1**: Implement the "Register" button on tournament pages.
-- **Task 3.2**: Build manual payment instruction view (displaying Organizer's UPI ID / bank details / QR code).
-- **Task 3.3**: Add upload field for transaction reference ID / screenshot proof (`participants` table).
-- **Task 3.4**: Build Organizer review dashboard to approve or reject pending player payments.
-
-### Sprint 4: Automated Fixtures & Manual Override (Week 6–7)
-- **Task 4.1**: Code Automated Fixture Engine algorithm to pair approved participants for Round 1 and map them across available physical boards.
-- **Task 4.2**: Build visual bracket tree and round-by-round fixture list view.
-- **Task 4.3**: Manual Override Feature: Build drag-and-swap UI for organizers to interchange players or reassign boards if someone runs late.
-
-### Sprint 5: Referees, Digital Score Sheets & Live Scoring (Week 8)
-- **Task 5.1**: Build Referee Assignment module (`match_officials` table) allowing organizers to link referees to specific boards/fixtures.
-- **Task 5.2**: Build Digital Score Sheet interface for referees to track set-by-set points live (+1 white, +1 black, +3 queen, -1 penalty/due).
-- **Task 5.3**: Program auto-trigger rules: when a player hits max points (e.g., 25 pts) or completes set boards, log set winner and lock scores.
-
-### Sprint 6: Notifications & Pre-Match Alerts (Week 9)
-- **Task 6.1**: Set up push notification service (Service Worker Web Push + WebSocket broadcasts).
-- **Task 6.2**: Build background cron job/worker that checks match start times every minute.
-- **Task 6.3**: Program 10-Minute Pre-Match Reminder to automatically alert players with assigned board number and opponent details.
+- **Admin Phone Protection:** If an imposter attempts to register through the public player portal using the Super Admin mobile number (`+919600436921`), the server rejects the request with HTTP `403 Forbidden` (`"This mobile number is reserved for the Super Administrator"`).
+- **No Guest Auto-Login:** Guest visitors remain unauthenticated. The app never auto-assigns tokens or masks failed logins with demo profiles.
+- **Master Admin Password Verification:** Admin logins verify email, phone, and password before issuing a token.
 
 ---
 
-## 5. Definition of Done (DoD) for MVP
+## 4. Database Architecture & Dual-Engine Compatibility
 
-The CarromX platform is field-ready when:
-1. ✅ **Tournament Creation & Verification**: An organizer creates a tournament with custom boards and rules, and the Help Desk reviews and publishes it.
-2. ✅ **Player Registration via Method 1 UPI**: Players discover the tournament via SEO link or app, submit their 12-digit UPI UTR, and the organizer approves them.
-3. ✅ **Automated Fixture Generation & Manual Overrides**: The organizer auto-generates brackets across physical boards and can drag-and-swap players if needed.
-4. ✅ **Referee Digital Scoring & Score Locking**: Referees log points for assigned boards, and finalized sets are locked with organizer override safeguards.
-5. ✅ **10-Minute Automated Pre-Match Alerts**: The background worker scans upcoming matches every 60 seconds and alerts players before their match begins.
+CarromX supports both local development and production cloud databases through an abstraction layer in [`server/db.js`](file:///c:/xampp/htdocs/CarromX/server/db.js).
+
+### Database Schema Entity-Relationship Model
+
+```mermaid
+erDiagram
+    USERS ||--o{ TOURNAMENTS : "organizes"
+    USERS ||--o{ PARTICIPANTS : "enrolls"
+    USERS ||--o{ MATCH_OFFICIALS : "officiates"
+    USERS ||--o{ NOTIFICATION_LOGS : "receives"
+
+    TOURNAMENTS ||--|{ BOARDS : "contains"
+    TOURNAMENTS ||--o{ PARTICIPANTS : "registers"
+    TOURNAMENTS ||--o{ MATCH_FIXTURES : "schedules"
+    TOURNAMENTS ||--o{ TOURNAMENT_OFFICIALS : "employs"
+
+    BOARDS ||--o{ MATCH_FIXTURES : "hosts"
+
+    PARTICIPANTS ||--o{ MATCH_FIXTURES : "plays as player 1"
+    PARTICIPANTS ||--o{ MATCH_FIXTURES : "plays as player 2"
+
+    MATCH_FIXTURES ||--o{ MATCH_SCORES : "records set scores"
+    MATCH_FIXTURES ||--o| MATCH_SCORE_SHEETS : "official AICF score sheet"
+    MATCH_FIXTURES ||--o{ MATCH_OFFICIALS : "assigned referees"
+    MATCH_FIXTURES ||--o{ NOTIFICATION_LOGS : "dispatches reminder"
+```
+
+### Dual-Engine Compatibility Layer
+
+| Feature | PostgreSQL (Render Production) | SQLite3 (Local Development) | Universal Translation (`server/db.js`) |
+| :--- | :--- | :--- | :--- |
+| **Parameterized Queries** | `$1, $2, $3` | `?, ?, ?` | Query translator auto-converts `?` to `$1, $2` on Postgres and `$1` to `?` on SQLite |
+| **Boolean Types** | Native `BOOLEAN` (`TRUE` / `FALSE`) | `INTEGER` (`1` / `0`) | Query runner translates `is_active = 1` $\rightarrow$ `is_active = true`, etc. |
+| **Runtime Migrations** | `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` | `PRAGMA table_info` + `ALTER TABLE ADD COLUMN` | Auto-runs during `initDb()` on server startup without table drops |
+| **Date / Time Functions** | `CURRENT_TIMESTAMP`, `CURRENT_DATE` | `CURRENT_TIMESTAMP`, `datetime('now')` | Auto-normalized in SQL string builder |
+
+---
+
+## 5. End-to-End Tournament Lifecycle
+
+```mermaid
+flowchart TD
+    A["1. Organiser Creates Tournament<br/>(Sets, Points, Duration, Boards)"] --> B["Status: pending_verification<br/>verified_by_helpdesk = false"]
+    B --> C["2. Help Desk Admin Review<br/>(Approves & Verifies)"]
+    C --> D["Status: published<br/>(Visible on Public Portal)"]
+    D --> E["3. Player Registration & Payment<br/>(UPI Reference UTR Submitted)"]
+    E --> F["4. Organiser Payment Approval<br/>(Status: approved + Seeding Rank)"]
+    F --> G{"5. Draw Generation"}
+    G -->|Seeded Bracket| H["ICF Standard Seeded Matchups<br/>(Seed 1 vs Seed 4, Seed 2 vs Seed 3)"]
+    G -->|Random Shuffle| I["Fair Draw Shuffle Animation<br/>(Random pairing across boards)"]
+    H --> J["6. Scheduled Fixtures Ready"]
+    I --> J
+    J --> K["7. 10-Min Pre-Match Alerts Dispatched<br/>(Background worker alerts players)"]
+    K --> L["8. Live Match Officiating<br/>(Official AICF Digital Score Sheet)"]
+    L --> M["9. Set Completion & Verification<br/>(Best of 3 sets, points locked)"]
+    M --> N["10. Bracket Advancement<br/>(Winner moves to Next Round / Finals)"]
+    N --> O["11. Tournament Completion<br/>(Podium & Final Standings)"]
+```
+
+---
+
+## 6. Official AICF / ICF Digital Score Sheet Implementation
+
+The digital score sheet conforms to the **All India Carrom Federation (AICF)** and **International Carrom Federation (ICF)** standards.
+
+### Data Model & Table: `match_score_sheets`
+- **Metadata**: `fixture_id`, `match_no`, `pool`, `age_group`, `game_type` (Singles / Doubles), `umpire_name`, `chief_referee_name`.
+- **Toss Details**: `toss_won_by`, `toss_choice` (White / Black / Side).
+- **Game Clock**: `game_1_start`, `game_1_end`, `game_2_start`, `game_2_end`, `game_3_start`, `game_3_end`.
+- **Granular Board Logs (`sheet_json`)**:
+  - White carrom coins pocketed (+1 point).
+  - Black carrom coins pocketed (+1 point).
+  - Queen pocketed & covered (+3 points, available until cumulative score reaches 21).
+  - Due / Penalty deductions (-1 coin).
+  - Break-to-finish (White Slam / Black Slam) indicators.
+- **Export & Certification**:
+  - Digital signatures of Umpire, Chief Referee, Player 1, and Player 2.
+  - One-click PDF generation matching the official paper tournament score sheet format.
+
+---
+
+## 7. Real-Time Synchronization & Notification Engine
+
+### 1. WebSocket Broadcast Gateway
+- **Event Types**:
+  - `SCORE_UPDATE`: Live set points for spectator view.
+  - `OFFICIAL_SCORE_SHEET_UPDATE`: Real-time coin-by-coin tally.
+  - `MATCH_STATUS_CHANGE`: When a match starts (`live`), completes (`completed`), or is locked.
+  - `TOURNAMENT_UPDATE`: When brackets or fixtures are refreshed.
+- **Sub-Second Delivery**: Avoids client-side polling loops and updates connected devices automatically.
+
+### 2. 10-Minute Pre-Match Background Worker
+- An autonomous timer runs every 60 seconds on the server.
+- Evaluates fixtures where `scheduled_start_time` is between 0 and 10 minutes from `CURRENT_TIMESTAMP`.
+- Checks `notification_logs` to prevent duplicate alerts.
+- Dispatches alert containing:
+  - Board number (e.g. *"Board 3"*).
+  - Opponent name.
+  - Scheduled start time.
+  - Set time limit (e.g. *"25 Minutes"*).
+
+---
+
+## 8. Mobile Application (Flutter) & Web Integration
+
+### Flutter App Overview (`carromx_mobile`)
+- **SDK**: Flutter 3.x / Dart 3.x.
+- **API Client**: REST API integration with automatic token preservation via `SharedPreferences`.
+- **Build Targets**:
+  - Google Android App Bundle (`app-release.aab`) targeting Android API 34.
+  - Signed using official upload keystore with ProGuard rules preserving JSON serialization.
+- **Web App**: Single Page Application built with vanilla JavaScript, optimized for zero build step overhead and instant loading across mobile browsers and desktops.
+
+---
+
+## 9. Environment Variables & Production Operations
+
+### Environment Variables (`.env`)
+
+| Variable | Description | Example / Recommended Value |
+| :--- | :--- | :--- |
+| `PORT` | Web server listening port | `3000` (Local) / `10000` (Render) |
+| `DATABASE_URL` | PostgreSQL connection string | `postgres://user:pass@host/carromx_db` |
+| `PGSSLMODE` | SSL requirement for cloud database | `require` |
+| `JWT_SECRET` | Secret key for signing auth tokens | Strong 64-char random hex string |
+| `SMTP_HOST` | Outgoing email server | `smtp.gmail.com` |
+| `SMTP_PORT` | Outgoing email port | `587` |
+| `SMTP_USER` | Email dispatch address | `carrromx@gmail.com` |
+| `SMTP_PASS` | SMTP application password | 16-character App Password |
+
+### Primary Super Admin Credentials
+
+- **Email**: `carrromx@gmail.com`
+- **Mobile Number**: `+919600436921` (`9600436921`)
+- **Master Password**: `Ramanan@03`
+- **Access Route**: `/#admin` or click **"Master Admin Portal"** on the sign-in modal.
