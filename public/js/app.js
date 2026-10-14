@@ -746,6 +746,11 @@ async function loadTournamentDetailData(tournamentId) {
                 <i class="fa-solid fa-users-gear"></i> Umpires &amp; Officials
               </button>
             ` : ''}
+            ${isSuperAdmin ? `
+              <button onclick="deleteTournamentAdmin('${t.tournament_id}', '${escapeHtml(t.title)}')" class="px-3.5 py-2 rounded-xl bg-rose-900/50 hover:bg-rose-900/90 text-rose-200 border border-rose-800/80 font-bold text-xs shadow-lg transition flex items-center gap-1.5" title="Permanently delete tournament (Super Admin Only)">
+                <i class="fa-solid fa-trash-can"></i> Delete Tournament
+              </button>
+            ` : ''}
             <button onclick="openRegisterModal('${t.tournament_id}', '${t.entry_fee}', '${escapeHtml(t.organizer_name || 'Organiser')}', '${escapeHtml(t.organizer_phone || '')}')" class="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-bold text-xs shadow-lg transition flex items-center gap-2">
               <i class="fa-solid fa-ticket"></i> Apply / Contact Organiser
             </button>
@@ -1846,15 +1851,20 @@ async function loadHelpDeskQueue() {
             </span>
           </td>
           <td class="py-2.5 px-3 text-right">
-            ${!isVerified ? `
-              <button onclick="verifyTournamentHelpDesk('${t.tournament_id}', true)" class="px-2.5 py-1 rounded bg-purple-600 hover:bg-purple-500 text-white font-bold text-[11px] transition">
-                <i class="fa-solid fa-certificate mr-1"></i> Verify & Publish
+            <div class="flex items-center justify-end gap-1.5">
+              ${!isVerified ? `
+                <button onclick="verifyTournamentHelpDesk('${t.tournament_id}', true)" class="px-2.5 py-1 rounded bg-purple-600 hover:bg-purple-500 text-white font-bold text-[11px] transition shadow-sm" title="Verify & Publish Tournament">
+                  <i class="fa-solid fa-certificate mr-1"></i> Verify
+                </button>
+              ` : `
+                <button onclick="verifyTournamentHelpDesk('${t.tournament_id}', false)" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 text-[10px]" title="Revoke Verification">
+                  Revoke
+                </button>
+              `}
+              <button onclick="deleteTournamentAdmin('${t.tournament_id}', '${escapeHtml(t.title)}')" class="px-2.5 py-1 rounded bg-rose-900/40 hover:bg-rose-900/80 text-rose-300 border border-rose-800/60 text-[11px] font-bold transition flex items-center gap-1 shadow-sm" title="Permanently delete tournament (Super Admin Only)">
+                <i class="fa-solid fa-trash-can"></i> Delete
               </button>
-            ` : `
-              <button onclick="verifyTournamentHelpDesk('${t.tournament_id}', false)" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 text-[10px]">
-                Revoke
-              </button>
-            `}
+            </div>
           </td>
         </tr>
       `;
@@ -1864,6 +1874,47 @@ async function loadHelpDeskQueue() {
     loadHelpDeskDisputes();
   } catch (err) {
     console.error('Error in helpdesk queue:', err);
+  }
+}
+
+async function deleteTournamentAdmin(tournamentId, tournamentTitle) {
+  const isSuperAdmin = (currentUser?.role === 'super_admin' || currentUser?.role === 'help_desk' || currentUser?.userId === 'usr_admin_carromx');
+  if (!isSuperAdmin) {
+    alert('Access denied: Only the Super Administrator has permission to delete tournaments.');
+    return;
+  }
+
+  const promptMsg = `⚠️ PERMANENT TOURNAMENT DELETION\n\nAre you sure you want to permanently delete "${tournamentTitle || tournamentId}"?\n\nThis will remove all associated physical boards, match fixtures, score sheets, and registered participants.\n\nType DELETE to confirm:`;
+  const confirmInput = prompt(promptMsg);
+  if (confirmInput !== 'DELETE') {
+    if (confirmInput !== null) alert('Deletion cancelled: Confirmation code "DELETE" was not entered.');
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/tournaments/${tournamentId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${currentToken}`
+      }
+    });
+
+    const data = await res.json();
+    if (res.ok) {
+      showToastNotification(`Tournament deleted successfully.`);
+      alert(data.message || 'Tournament deleted successfully.');
+      loadHelpDeskQueue();
+      fetchTournaments();
+      if (currentTournamentId === tournamentId) {
+        currentTournamentId = '';
+        navigateTo('tournaments');
+      }
+    } else {
+      alert(`Error: ${data.error || 'Failed to delete tournament'}`);
+    }
+  } catch (err) {
+    console.error('Delete tournament error:', err);
+    alert('Failed to delete tournament: ' + err.message);
   }
 }
 

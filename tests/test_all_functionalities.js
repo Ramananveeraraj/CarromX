@@ -327,13 +327,34 @@ async function runAllTests() {
   assert(res.status === 200, 'Organiser logs Board 1 score (4 coins + Queen = 7 points for P1)');
   assert(res.data.sheet.games[0].boards[0].p1Total === 7, 'Cumulative point calculation matches AICF standards');
 
-  // Clean up test data
+  // ----------------------------------------------------
+  // TEST GROUP 7: Tournament Deletion (SUPER ADMIN ONLY)
+  // ----------------------------------------------------
+  console.log('\n--- 7. Tournament Deletion (Super Admin Only) ---');
+
+  // 7.1 Player attempting to delete tournament -> FORBIDDEN
+  res = await request('DELETE', `/api/tournaments/${tourId}`, null, playerToken);
+  assert(res.status === 403, 'Player cannot delete tournament (403 Forbidden)');
+
+  // 7.2 Organiser attempting to delete tournament -> FORBIDDEN
+  res = await request('DELETE', `/api/tournaments/${tourId}`, null, orgToken);
+  assert(res.status === 403, 'Organiser cannot delete tournament (403 Forbidden)');
+  assert(res.data.error.includes('Only the Super Administrator'), 'Returns clear message: Only the Super Administrator has permission to delete tournaments');
+
+  // 7.3 Super Admin deletes tournament -> SUCCESS
+  res = await request('DELETE', `/api/tournaments/${tourId}`, null, adminToken);
+  assert(res.status === 200, 'Super Admin deletes tournament successfully (200 OK)');
+
+  // 7.4 Verify tournament and all associated boards & fixtures are deleted
+  const checkTour = await query('SELECT * FROM tournaments WHERE tournament_id = $1', [tourId]);
+  assert(checkTour.rows.length === 0, 'Tournament permanently removed from database');
+  const checkBoards = await query('SELECT * FROM boards WHERE tournament_id = $1', [tourId]);
+  assert(checkBoards.rows.length === 0, 'All tournament physical boards removed');
+  const checkFix = await query('SELECT * FROM match_fixtures WHERE tournament_id = $1', [tourId]);
+  assert(checkFix.rows.length === 0, 'All tournament match fixtures removed');
+
+  // Clean up remaining test data
   console.log('\n--- Cleaning up temporary test artifacts ---');
-  await query('DELETE FROM match_disputes WHERE fixture_id = $1', [fixId]);
-  await query('DELETE FROM match_score_sheets WHERE fixture_id = $1', [fixId]);
-  await query('DELETE FROM match_fixtures WHERE fixture_id = $1', [fixId]);
-  await query('DELETE FROM boards WHERE tournament_id = $1', [tourId]);
-  await query('DELETE FROM tournaments WHERE tournament_id = $1', [tourId]);
   await query('DELETE FROM users WHERE user_id IN ($1, $2)', [orgId, playerId]);
   console.log('Cleanup finished.');
 

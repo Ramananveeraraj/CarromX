@@ -1,6 +1,6 @@
 import express from 'express';
 import { query } from '../db.js';
-import { authenticateToken, requireRoles, checkTournamentOwnership } from '../auth.js';
+import { authenticateToken, requireRoles, checkTournamentOwnership, normalizeRole } from '../auth.js';
 import crypto from 'crypto';
 
 const router = express.Router();
@@ -379,19 +379,48 @@ router.put('/:id', authenticateToken, async (req, res) => {
 });
 
 /**
- * Delete a tournament (Owner or Super Admin only)
+ * Delete a tournament (SUPER ADMIN ONLY)
+ * Strictly restricted to Administrator. Cascades and deletes all child records.
  */
 router.delete('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const perm = await checkTournamentOwnership(id, req.user);
-    if (!perm.authorized) {
-      return res.status(403).json({ error: 'Forbidden: You can only delete tournaments you created, or as Super Admin.' });
+
+    // STRICT CHECK: Only Super Admin has authorization to delete tournaments
+    const userRole = normalizeRole(req.user.activeRole || req.user.role);
+    const isSuperAdmin = (userRole === 'super_admin' || req.user.user_id === 'usr_admin_carromx');
+
+    if (!isSuperAdmin) {
+      return res.status(403).json({
+        error: 'Access denied: Only the Super Administrator has permission to delete tournaments.'
+      });
     }
 
+    const tourCheck = await query('SELECT title FROM tournaments WHERE tournament_id = $1', [id]);
+    if (tourCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Tournament not found' });
+    }
+    const tourTitle = tourCheck.rows[0].title;
+
+    // Clean up all related child entities across both SQLite & PostgreSQL safely
+    await query('DELETE FROM match_disputes WHERE fixture_id IN (SELECT fixture_id FROM match_fixtures WHERE tournament_id = $1)', [id]);
+    await query('DELETE FROM match_score_sheets WHERE fixture_id IN (SELECT fixture_id FROM match_fixtures WHERE tournament_id = $1)', [id]);
+    await query('DELETE FROM match_scores WHERE fixture_id IN (SELECT fixture_id FROM match_fixtures WHERE tournament_id = $1)', [id]);
+    await query('DELETE FROM match_officials WHERE fixture_id IN (SELECT fixture_id FROM match_fixtures WHERE tournament_id = $1)', [id]);
+    await query('DELETE FROM notification_logs WHERE fixture_id IN (SELECT fixture_id FROM match_fixtures WHERE tournament_id = $1)', [id]);
+    await query('DELETE FROM match_fixtures WHERE tournament_id = $1', [id]);
+    await query('DELETE FROM boards WHERE tournament_id = $1', [id]);
+    await query('DELETE FROM participants WHERE tournament_id = $1', [id]);
+    await query('DELETE FROM tournament_officials WHERE tournament_id = $1', [id]);
     await query('DELETE FROM tournaments WHERE tournament_id = $1', [id]);
-    res.json({ success: true, message: 'Tournament deleted successfully.' });
+
+    res.json({
+      success: true,
+      message: `Tournament "${tourTitle}" and all associated fixtures, boards, and scores were permanently deleted by Super Admin.`,
+      tournamentId: id
+    });
   } catch (err) {
+    console.error('Error deleting tournament:', err);
     res.status(500).json({ error: 'Failed to delete tournament', details: err.message });
   }
 });
