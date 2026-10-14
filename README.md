@@ -155,7 +155,7 @@ http://localhost:3000
 
 ### 3. Pre-Configured Demo Accounts (1-Click Login)
 The application comes pre-seeded with 4 dynamic role personas:
-- **CarromX Admin (Super Admin)**: Email `carrromx@gmail.com`, Phone `+919876543210`
+- **CarromX Admin (Super Admin)**: Email `carrromx@gmail.com`, Phone `+919600436921`
 - **Rahul Verma (Player)**: Phone `+919876543201`
 - **Priya Sharma (Organizer)**: Phone `+919876543202`
 - **Suresh Kumar (Official Referee)**: Phone `+919876543203`

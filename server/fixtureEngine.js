@@ -247,7 +247,7 @@ export async function advanceKnockoutBracket(tournamentId, dbQuery) {
     const tournament = tRes.rows[0];
 
     // 2. Get active boards for board allocation
-    const bRes = await dbQuery('SELECT * FROM boards WHERE tournament_id = $1 AND is_active = 1 ORDER BY board_number ASC', [tournamentId]);
+    const bRes = await dbQuery('SELECT * FROM boards WHERE tournament_id = $1 AND is_active = true ORDER BY board_number ASC', [tournamentId]);
     const activeBoards = bRes.rows;
 
     // 3. Get all fixtures ordered by round and start time

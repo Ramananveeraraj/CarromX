@@ -8,6 +8,7 @@ const router = express.Router();
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
 const PHONE_REGEX = /^\+?[0-9]{10,15}$/;
+const ADMIN_PHONE = '+919600436921';
 
 function isValidEmail(val) {
   return typeof val === 'string' && EMAIL_REGEX.test(val.trim());
@@ -187,11 +188,17 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // STRICT CHECK 2: Phone number MUST match the registered admin phone!
-    if (user.phone_number && user.phone_number !== cleanPhone) {
+    // STRICT CHECK 2: Phone number MUST match the registered admin phone (+919600436921)!
+    const matchesAdminPhone = (cleanPhone === ADMIN_PHONE || cleanPhone.replace(/\D/g, '').endsWith('9600436921'));
+    if (!matchesAdminPhone) {
       return res.status(401).json({
         error: 'Mobile phone number does not match registered Super Admin records.'
       });
+    }
+
+    if (user.phone_number !== ADMIN_PHONE) {
+      await query('UPDATE users SET phone_number = $1 WHERE user_id = $2', [ADMIN_PHONE, user.user_id]).catch(() => {});
+      user.phone_number = ADMIN_PHONE;
     }
 
     // STRICT CHECK 3: Password MUST match the admin master password (no backdoor bypasses)!
@@ -246,7 +253,7 @@ router.post('/forgot-password', async (req, res) => {
       await query(
         `INSERT INTO users (user_id, full_name, phone_number, email, role, created_at)
          VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)`,
-        [newUserId, 'CarromX Admin', '+919876543210', 'carrromx@gmail.com', 'super_admin']
+        [newUserId, 'CarromX Admin', ADMIN_PHONE, 'carrromx@gmail.com', 'super_admin']
       );
       const created = await query('SELECT * FROM users WHERE user_id = $1', [newUserId]);
       user = created.rows[0];
@@ -333,7 +340,7 @@ router.post('/reset-password', async (req, res) => {
       await query(
         `INSERT INTO users (user_id, full_name, phone_number, email, password_hash, role, created_at)
          VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)`,
-        [newUserId, 'CarromX Admin', '+919876543210', 'carrromx@gmail.com', cleanPass, 'super_admin']
+        [newUserId, 'CarromX Admin', ADMIN_PHONE, 'carrromx@gmail.com', cleanPass, 'super_admin']
       );
       const created = await query('SELECT * FROM users WHERE user_id = $1', [newUserId]);
       user = created.rows[0];
@@ -412,15 +419,13 @@ router.post('/verify-otp', async (req, res) => {
       userRes = await query('SELECT * FROM users WHERE LOWER(email) = $1', [cleanEmail]);
     }
     if (userRes.rows.length === 0 && cleanPhone) {
-      const phoneRes = await query('SELECT * FROM users WHERE phone_number = $1', [cleanPhone]);
-      // Safety: Never associate a non-admin player with usr_admin_carromx
-      if (phoneRes.rows.length > 0 && phoneRes.rows[0].email === 'carrromx@gmail.com' && cleanEmail !== 'carrromx@gmail.com') {
-        // Free phone from super admin
-        await query("UPDATE users SET phone_number = '+919876543210' WHERE user_id = 'usr_admin_carromx'").catch(() => {});
-        userRes = { rows: [] };
-      } else {
-        userRes = phoneRes;
+      if (cleanPhone === ADMIN_PHONE && cleanEmail && cleanEmail !== 'carrromx@gmail.com') {
+        return res.status(403).json({
+          error: 'This mobile number is reserved for the Super Administrator. Please use the Super Admin login portal or enter your personal mobile number.'
+        });
       }
+      const phoneRes = await query('SELECT * FROM users WHERE phone_number = $1', [cleanPhone]);
+      userRes = phoneRes;
     }
 
     let user;
@@ -434,12 +439,11 @@ router.post('/verify-otp', async (req, res) => {
       const name = fullName?.trim() || (cleanEmail ? cleanEmail.split('@')[0] : (cleanPhone ? `User_${cleanPhone.slice(-4)}` : 'Player'));
       const userEmail = cleanEmail || `${newUserId}@carromx.local`;
 
-      // Free phone from super admin if previously occupied
-      if (cleanPhone) {
-        await query("UPDATE users SET phone_number = '+919876543210' WHERE phone_number = $1 AND user_id = 'usr_admin_carromx'", [cleanPhone]).catch(() => {});
+      if (cleanPhone === ADMIN_PHONE && !isSuperAdminEmail) {
+        return res.status(403).json({ error: 'This mobile number is reserved for the Super Administrator.' });
       }
 
-      // Never assign admin phone '+919876543210' to players! Use user's cleanPhone or a unique random number
+      // Never assign admin phone to players! Use user's cleanPhone or a unique random number
       const randomUniquePhone = '+91' + Math.floor(6000000000 + Math.random() * 3999999999);
       const userPhone = cleanPhone || randomUniquePhone;
 
@@ -475,10 +479,9 @@ router.post('/verify-otp', async (req, res) => {
           // ignore duplicate email constraint if already assigned
         }
       }
-      // Update missing or placeholder phone with cleanPhone (non-admin only)
-      if (user.user_id !== 'usr_admin_carromx' && cleanPhone && (!user.phone_number || user.phone_number.startsWith('+9100') || user.phone_number !== cleanPhone)) {
+      // Update missing or placeholder phone with cleanPhone (non-admin only, never overwrite with ADMIN_PHONE)
+      if (user.user_id !== 'usr_admin_carromx' && cleanPhone && cleanPhone !== ADMIN_PHONE && (!user.phone_number || user.phone_number.startsWith('+9100') || user.phone_number !== cleanPhone)) {
         try {
-          await query("UPDATE users SET phone_number = '+919876543210' WHERE phone_number = $1 AND user_id = 'usr_admin_carromx'", [cleanPhone]).catch(() => {});
           await query('UPDATE users SET phone_number = $1 WHERE user_id = $2', [cleanPhone, user.user_id]);
           user.phone_number = cleanPhone;
         } catch (e) {

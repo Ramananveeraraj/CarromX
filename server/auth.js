@@ -216,7 +216,7 @@ export function requireRoles(...allowedRoles) {
     if (!normalizedAllowed.includes(currentRole)) {
       if (normalizedAllowed.includes('organizer') && currentRole === 'player') {
         return res.status(403).json({
-          error: 'Only registered Organisers or Admins can create and host tournaments. You can switch your account role to Organiser to host tournaments.',
+          error: 'Only registered Organisers or Admins can create and host tournaments. Please contact the Super Admin to request an Organiser role.',
           requiresRole: 'organizer',
           currentRole: 'player'
         });

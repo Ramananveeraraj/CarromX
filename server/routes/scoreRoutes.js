@@ -243,14 +243,14 @@ router.post('/fixtures/:id/lock-set', authenticateToken, async (req, res) => {
 
     await query(
       `UPDATE match_scores 
-       SET is_set_completed = 1, set_winner_id = $1, logged_by_referee_id = $2, updated_at = CURRENT_TIMESTAMP
+       SET is_set_completed = true, set_winner_id = $1, logged_by_referee_id = $2, updated_at = CURRENT_TIMESTAMP
        WHERE score_id = $3`,
       [winnerId, req.user.user_id, score.score_id]
     );
 
     // Check if match is decided (e.g. Best of 3 sets)
     const allSetsRes = await query(
-      'SELECT * FROM match_scores WHERE fixture_id = $1 AND is_set_completed = 1',
+      'SELECT * FROM match_scores WHERE fixture_id = $1 AND is_set_completed = true',
       [fixtureId]
     );
     let p1SetsWon = 0;
@@ -320,7 +320,7 @@ router.post('/fixtures/:id/organizer-override', authenticateToken, async (req, r
     const params = [];
 
     if (unlock !== undefined) {
-      params.push(unlock ? 0 : 1);
+      params.push(unlock ? false : true);
       updates.push(`is_set_completed = $${params.length}`);
     }
     if (p1Points !== undefined) {
@@ -656,7 +656,7 @@ router.post('/fixtures/:id/score-sheet', authenticateToken, async (req, res) => 
         const lastBoard = (g.boards || []).slice(-1)[0] || {};
         const p1Pts = lastBoard.p1Cum || 0;
         const p2Pts = lastBoard.p2Cum || 0;
-        const isCompleted = g.wonBy ? 1 : 0;
+        const isCompleted = Boolean(g.wonBy);
         const winnerId = g.wonBy === 'player_1' ? fixture.player_1_id : (g.wonBy === 'player_2' ? fixture.player_2_id : null);
 
         const scoreRes = await query('SELECT score_id FROM match_scores WHERE fixture_id = $1 AND set_number = $2', [fixtureId, setNum]);

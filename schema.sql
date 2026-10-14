@@ -27,6 +27,8 @@ CREATE TABLE IF NOT EXISTS tournaments (
     max_points_per_set INT NOT NULL DEFAULT 25,
     boards_per_set INT NOT NULL DEFAULT 8,
     total_sets INT NOT NULL DEFAULT 3,
+    set_time_limit_minutes INT DEFAULT 25,
+    match_duration_minutes INT DEFAULT 45,
     entry_fee DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     status VARCHAR(50) NOT NULL DEFAULT 'pending_verification' CHECK (status IN ('pending_verification', 'published', 'ongoing', 'completed')),
     verified_by_helpdesk BOOLEAN NOT NULL DEFAULT FALSE,
@@ -69,7 +71,15 @@ CREATE TABLE IF NOT EXISTS match_fixtures (
     player_2_id VARCHAR(64) REFERENCES participants(participant_id) ON DELETE CASCADE,
     scheduled_start_time TIMESTAMP NOT NULL,
     match_status VARCHAR(50) NOT NULL DEFAULT 'scheduled' CHECK (match_status IN ('scheduled', 'live', 'completed', 'disputed')),
-    winner_participant_id VARCHAR(64) REFERENCES participants(participant_id) ON DELETE SET NULL
+    winner_participant_id VARCHAR(64) REFERENCES participants(participant_id) ON DELETE SET NULL,
+    match_no VARCHAR(50),
+    pool VARCHAR(50),
+    age_group VARCHAR(50),
+    game_type VARCHAR(50) DEFAULT 'Singles',
+    umpire_name VARCHAR(150),
+    chief_referee_name VARCHAR(150),
+    set_time_limit_minutes INT DEFAULT 25,
+    match_duration_minutes INT DEFAULT 45
 );
 
 -- 6. match_officials Table (Referees)
@@ -126,6 +136,29 @@ CREATE TABLE IF NOT EXISTS otp_verifications (
     otp_code VARCHAR(10) NOT NULL,
     expires_at BIGINT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 11. match_score_sheets Table (Official Carrom Score Sheet)
+CREATE TABLE IF NOT EXISTS match_score_sheets (
+    fixture_id VARCHAR(64) PRIMARY KEY REFERENCES match_fixtures(fixture_id) ON DELETE CASCADE,
+    match_no VARCHAR(50),
+    pool VARCHAR(50),
+    age_group VARCHAR(50),
+    game_type VARCHAR(50) DEFAULT 'Singles',
+    umpire_name VARCHAR(150),
+    chief_referee_name VARCHAR(150),
+    toss_won_by VARCHAR(50),
+    toss_choice VARCHAR(50),
+    game_1_start VARCHAR(50),
+    game_1_end VARCHAR(50),
+    game_2_start VARCHAR(50),
+    game_2_end VARCHAR(50),
+    game_3_start VARCHAR(50),
+    game_3_end VARCHAR(50),
+    sheet_json TEXT,
+    winner_id VARCHAR(64),
+    final_score_summary TEXT,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Indexes for optimal lookup performance

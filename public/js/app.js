@@ -95,32 +95,7 @@ async function ensureOrganizerAuthToken() {
   if (currentToken && currentUser) {
     return currentToken;
   }
-  try {
-    const demoRes = await fetch('/api/auth/demo-users');
-    if (demoRes.ok) {
-      const demoData = await demoRes.json();
-      const orgProfile = (demoData.demoProfiles || []).find(d => d.role === 'organizer') || (demoData.demoProfiles || [])[0];
-      if (orgProfile) {
-        currentToken = orgProfile.token;
-        currentUser = {
-          userId: orgProfile.userId,
-          fullName: orgProfile.fullName,
-          phoneNumber: orgProfile.phoneNumber,
-          email: orgProfile.email,
-          role: orgProfile.role,
-          activeRole: orgProfile.role
-        };
-        activeRole = orgProfile.role;
-        localStorage.setItem('carromx_token', currentToken);
-        localStorage.setItem('carromx_role', activeRole);
-        updateHeaderProfile();
-        return currentToken;
-      }
-    }
-  } catch (e) {
-    console.warn('ensureOrganizerAuthToken error:', e);
-  }
-  return currentToken;
+  return null;
 }
 
 /**
@@ -140,17 +115,13 @@ async function restoreSession() {
         activeRole = currentUser.role || activeRole;
       } else {
         localStorage.removeItem('carromx_token');
+        localStorage.removeItem('carromx_role');
         currentToken = null;
         currentUser = null;
       }
     } catch (e) {
       console.warn('Session check error:', e);
     }
-  }
-
-  // Auto-fallback to organizer if not signed in so buttons always work out-of-the-box
-  if (!currentToken || !currentUser) {
-    await ensureOrganizerAuthToken();
   }
 
   updateHeaderProfile();
@@ -4614,7 +4585,11 @@ async function executeDirectRandomShuffle(targetTourId = null) {
   }
 
   // Ensure organizer token
-  await ensureOrganizerAuthToken();
+  if (!currentToken || !currentUser) {
+    openAuthModal('regular');
+    showToastNotification('Please sign in as an Organiser to manage fixtures.');
+    return;
+  }
 
   // Inspect tournament and approved participants
   let participants = [];
@@ -4779,6 +4754,13 @@ async function executeDirectRandomShuffle(targetTourId = null) {
 }
 
 async function executeGenerateFixtures() {
+  if (!currentToken || !currentUser) {
+    closeGenerateFixturesModal();
+    openAuthModal('regular');
+    showToastNotification('Please sign in as an Organiser to generate fixtures.');
+    return;
+  }
+
   const drawModeInput = document.querySelector('input[name="fixtureDrawMode"]:checked');
   const drawMode = drawModeInput ? drawModeInput.value : 'random';
   const duration = parseInt(document.getElementById('fixtureDurationInput')?.value, 10) || 45;
@@ -4792,7 +4774,11 @@ async function executeGenerateFixtures() {
   } else {
     // Seeded Bracket Draw
     try {
-      await ensureOrganizerAuthToken();
+      if (!currentToken || !currentUser) {
+        openAuthModal('regular');
+        showToastNotification('Please sign in as an Organiser to generate fixtures.');
+        return;
+      }
       const res = await fetch(`/api/tournaments/${currentTournamentId}/fixtures/generate`, {
         method: 'POST',
         headers: {
@@ -4839,7 +4825,11 @@ async function triggerAdvanceBracket() {
   }
 
   try {
-    await ensureOrganizerAuthToken();
+    if (!currentToken || !currentUser) {
+      openAuthModal('regular');
+      showToastNotification('Please sign in as an Organiser to advance bracket.');
+      return;
+    }
     const res = await fetch(`/api/tournaments/${tourId}/fixtures/advance`, {
       method: 'POST',
       headers: {

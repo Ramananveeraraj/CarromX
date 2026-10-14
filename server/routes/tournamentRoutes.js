@@ -158,14 +158,14 @@ router.post('/', authenticateToken, requireRoles('organizer', 'help_desk'), asyn
 
     const tournamentId = 'trn_' + crypto.randomUUID().slice(0, 10);
 
-    // Insert tournament with verified_by_helpdesk = 0 (false) and status = 'pending_verification'
+    // Insert tournament with verified_by_helpdesk = false and status = 'pending_verification'
     await query(
       `INSERT INTO tournaments (
         tournament_id, organizer_id, title, venue_address, format,
         total_boards, max_points_per_set, boards_per_set, total_sets,
         set_time_limit_minutes, match_duration_minutes, entry_fee,
         status, verified_by_helpdesk, upi_id, rules_summary, banner_url, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'pending_verification', 0, $13, $14, $15, CURRENT_TIMESTAMP)`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'pending_verification', false, $13, $14, $15, CURRENT_TIMESTAMP)`,
       [
         tournamentId,
         organizerId,
@@ -190,7 +190,7 @@ router.post('/', authenticateToken, requireRoles('organizer', 'help_desk'), asyn
       const boardId = `brd_${tournamentId}_${i}`;
       await query(
         `INSERT INTO boards (board_id, tournament_id, board_number, is_active)
-         VALUES ($1, $2, $3, 1)`,
+         VALUES ($1, $2, $3, true)`,
         [boardId, tournamentId, i]
       );
     }
@@ -221,7 +221,7 @@ router.post('/:id/verify', authenticateToken, requireRoles('help_desk'), async (
     }
 
     const newStatus = approved ? 'published' : 'pending_verification';
-    const isVerified = approved ? 1 : 0;
+    const isVerified = approved ? true : false;
 
     await query(
       `UPDATE tournaments 

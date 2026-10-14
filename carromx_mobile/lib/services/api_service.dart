@@ -63,13 +63,13 @@ class ApiService extends ChangeNotifier {
 
   Future<bool> quickPersonaLogin(String role) async {
     final phoneMap = {
-      'super_admin': '+919876543210',
-      'player': '+919876543210',
-      'organizer': '+919876543210',
-      'referee': '+919876543210',
-      'help_desk': '+919876543210',
+      'super_admin': '+919600436921',
+      'player': '+919600436921',
+      'organizer': '+919600436921',
+      'referee': '+919600436921',
+      'help_desk': '+919600436921',
     };
-    final phone = phoneMap[role] ?? '+919876543210';
+    final phone = phoneMap[role] ?? '+919600436921';
     return await verifyOtp(phone, 'Ramanan@03', desiredRole: role);
   }
 

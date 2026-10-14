@@ -99,7 +99,7 @@ router.post('/tournaments/:id/fixtures/generate', authenticateToken, async (req,
 
     // Get active boards
     const boardsRes = await query(
-      'SELECT * FROM boards WHERE tournament_id = $1 AND is_active = 1 ORDER BY board_number ASC',
+      'SELECT * FROM boards WHERE tournament_id = $1 AND is_active = true ORDER BY board_number ASC',
       [tournamentId]
     );
 

@@ -39,7 +39,15 @@ export async function query(sql, params = []) {
       pgSql = sql.replace(/\?/g, () => `$${paramIndex++}`);
     }
     // Universal SQLite-to-PostgreSQL syntax compatibility:
-    pgSql = pgSql.replace(/datetime\([^)]*\)/gi, 'CURRENT_TIMESTAMP').replace(/date\('now'\)/gi, 'CURRENT_DATE');
+    pgSql = pgSql
+      .replace(/datetime\([^)]*\)/gi, 'CURRENT_TIMESTAMP')
+      .replace(/date\('now'\)/gi, 'CURRENT_DATE')
+      .replace(/\bis_active\s*=\s*1\b/gi, 'is_active = true')
+      .replace(/\bis_active\s*=\s*0\b/gi, 'is_active = false')
+      .replace(/\bverified_by_helpdesk\s*=\s*1\b/gi, 'verified_by_helpdesk = true')
+      .replace(/\bverified_by_helpdesk\s*=\s*0\b/gi, 'verified_by_helpdesk = false')
+      .replace(/\bis_set_completed\s*=\s*1\b/gi, 'is_set_completed = true')
+      .replace(/\bis_set_completed\s*=\s*0\b/gi, 'is_set_completed = false');
     const res = await dbClient.query(pgSql, params);
     return { rows: res.rows, rowCount: res.rowCount };
   } else {
@@ -82,6 +90,30 @@ export async function initDb() {
   if (isPostgres) {
     const schemaSql = fs.readFileSync(path.resolve(__dirname, '../schema.sql'), 'utf8');
     await dbClient.query(schemaSql);
+
+    // PostgreSQL schema migration helper: add any missing columns safely
+    const pgMigrations = [
+      "ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS set_time_limit_minutes INT DEFAULT 25;",
+      "ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS match_duration_minutes INT DEFAULT 45;",
+      "ALTER TABLE match_fixtures ADD COLUMN IF NOT EXISTS match_no VARCHAR(50);",
+      "ALTER TABLE match_fixtures ADD COLUMN IF NOT EXISTS pool VARCHAR(50);",
+      "ALTER TABLE match_fixtures ADD COLUMN IF NOT EXISTS age_group VARCHAR(50);",
+      "ALTER TABLE match_fixtures ADD COLUMN IF NOT EXISTS game_type VARCHAR(50) DEFAULT 'Singles';",
+      "ALTER TABLE match_fixtures ADD COLUMN IF NOT EXISTS umpire_name VARCHAR(150);",
+      "ALTER TABLE match_fixtures ADD COLUMN IF NOT EXISTS chief_referee_name VARCHAR(150);",
+      "ALTER TABLE match_fixtures ADD COLUMN IF NOT EXISTS set_time_limit_minutes INT DEFAULT 25;",
+      "ALTER TABLE match_fixtures ADD COLUMN IF NOT EXISTS match_duration_minutes INT DEFAULT 45;",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);"
+    ];
+
+    for (const sql of pgMigrations) {
+      try {
+        await dbClient.query(sql);
+      } catch (err) {
+        console.warn('PostgreSQL column migration notice:', err.message);
+      }
+    }
+
     console.log('PostgreSQL database schema verified.');
   } else {
     // Run SQLite migrations
