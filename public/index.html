@@ -125,6 +125,11 @@
           <i class="fa-solid fa-trophy mr-1 text-amber-400"></i> Tournaments
         </button>
 
+        <!-- How It Works / User Guide (All Roles) -->
+        <button onclick="openAppGuideModal('player')" id="nav-guide" class="nav-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-amber-300 hover:text-white hover:bg-amber-600/30 transition flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/30" title="Step-by-step guide for Players, Referees and Organisers">
+          <i class="fa-solid fa-book-open text-amber-400"></i> How It Works
+        </button>
+
         <!-- My Tournaments (Organiser) -->
         <button onclick="filterMyTournaments()" id="nav-my-tournaments" class="nav-btn hidden px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition">
           <i class="fa-solid fa-folder-open mr-1 text-blue-400"></i> My Tournaments
@@ -196,26 +201,120 @@
     
     <!-- VIEW: Tournaments List & Details -->
     <section id="view-tournaments" class="space-y-6">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 class="text-2xl font-black text-white tracking-tight flex items-center gap-2">
-            <i class="fa-solid fa-trophy text-amber-500"></i> Carrom Tournaments
-          </h1>
-          <p class="text-sm text-slate-400">Browse official local championships, board fixtures, and verified rules.</p>
-        </div>
-        <div class="flex items-center gap-2">
-          <button onclick="navigateTo('organizer')" class="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-bold text-xs shadow-lg transition flex items-center gap-2">
-            <i class="fa-solid fa-plus"></i> Host Tournament
-          </button>
+      
+      <!-- User-Friendly Quick Start Banner & Welcome Hub -->
+      <div class="rounded-3xl bg-gradient-to-br from-slate-900 via-emerald-950/40 to-slate-900 border border-amber-500/30 p-5 sm:p-7 shadow-2xl relative overflow-hidden">
+        <!-- Background subtle glow -->
+        <div class="absolute -top-24 -right-24 w-72 h-72 rounded-full bg-amber-500/10 blur-3xl pointer-events-none"></div>
+
+        <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div class="space-y-3 max-w-xl">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold uppercase tracking-wider">
+              <i class="fa-solid fa-bullseye text-amber-400"></i> Official Carrom Platform
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-black text-white tracking-tight leading-tight">
+              Play, Follow &amp; Host <br><span class="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500">Official Carrom Tournaments</span>
+            </h1>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              India's easiest carrom tournament platform. Register for live matches, view real-time scoreboards courtside, or host tournaments with automated boards and knockout fixtures.
+            </p>
+            <div class="flex flex-wrap items-center gap-3 pt-1">
+              <button onclick="openAppGuideModal('player')" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs shadow-lg transition flex items-center gap-2 active:scale-95">
+                <i class="fa-solid fa-circle-play text-slate-950 text-sm"></i>
+                <span>How to Use (Quick 60s Guide)</span>
+              </button>
+              <button onclick="navigateTo('organizer')" class="px-3.5 py-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-white font-bold text-xs border border-slate-700 transition flex items-center gap-2">
+                <i class="fa-solid fa-plus-circle text-blue-400"></i>
+                <span>Host Tournament</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 4 User-Friendly Quick-Launch Cards -->
+          <div class="grid grid-cols-2 gap-3 sm:gap-3.5 lg:w-[420px] flex-shrink-0">
+            <!-- Card 1: Join Matches -->
+            <div onclick="scrollToTournaments()" class="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800 hover:border-amber-500/60 hover:bg-slate-900/90 cursor-pointer transition group shadow-md flex flex-col justify-between">
+              <div>
+                <div class="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-sm font-bold mb-2 group-hover:scale-110 transition shadow-inner">
+                  <i class="fa-solid fa-trophy"></i>
+                </div>
+                <div class="text-xs font-bold text-white group-hover:text-amber-300 transition flex items-center justify-between">
+                  <span>1. Join Match</span>
+                  <i class="fa-solid fa-arrow-right text-[10px] opacity-0 group-hover:opacity-100 transition -translate-x-1 group-hover:translate-x-0"></i>
+                </div>
+                <div class="text-[11px] text-slate-400 mt-1 leading-snug">Browse tournaments &amp; apply via UPI</div>
+              </div>
+            </div>
+
+            <!-- Card 2: Live Scores -->
+            <div onclick="openScoreSheetNav()" class="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800 hover:border-emerald-500/60 hover:bg-slate-900/90 cursor-pointer transition group shadow-md flex flex-col justify-between">
+              <div>
+                <div class="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-sm font-bold mb-2 group-hover:scale-110 transition shadow-inner">
+                  <i class="fa-solid fa-file-invoice"></i>
+                </div>
+                <div class="text-xs font-bold text-white group-hover:text-emerald-300 transition flex items-center justify-between">
+                  <span>2. Live Scores</span>
+                  <i class="fa-solid fa-arrow-right text-[10px] opacity-0 group-hover:opacity-100 transition -translate-x-1 group-hover:translate-x-0"></i>
+                </div>
+                <div class="text-[11px] text-slate-400 mt-1 leading-snug">AICF digital sheets &amp; queen covers</div>
+              </div>
+            </div>
+
+            <!-- Card 3: Umpire Board PIN -->
+            <div onclick="openAppGuideModal('umpire')" class="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800 hover:border-blue-500/60 hover:bg-slate-900/90 cursor-pointer transition group shadow-md flex flex-col justify-between">
+              <div>
+                <div class="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center text-sm font-bold mb-2 group-hover:scale-110 transition shadow-inner">
+                  <i class="fa-solid fa-key"></i>
+                </div>
+                <div class="text-xs font-bold text-white group-hover:text-blue-300 transition flex items-center justify-between">
+                  <span>3. Board PIN</span>
+                  <i class="fa-solid fa-arrow-right text-[10px] opacity-0 group-hover:opacity-100 transition -translate-x-1 group-hover:translate-x-0"></i>
+                </div>
+                <div class="text-[11px] text-slate-400 mt-1 leading-snug">4-digit code to unlock umpire scoring</div>
+              </div>
+            </div>
+
+            <!-- Card 4: How It Works Guide -->
+            <div onclick="openAppGuideModal('player')" class="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800 hover:border-purple-500/60 hover:bg-slate-900/90 cursor-pointer transition group shadow-md flex flex-col justify-between">
+              <div>
+                <div class="w-9 h-9 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center text-sm font-bold mb-2 group-hover:scale-110 transition shadow-inner">
+                  <i class="fa-solid fa-circle-question"></i>
+                </div>
+                <div class="text-xs font-bold text-white group-hover:text-purple-300 transition flex items-center justify-between">
+                  <span>4. Easy Guide</span>
+                  <i class="fa-solid fa-arrow-right text-[10px] opacity-0 group-hover:opacity-100 transition -translate-x-1 group-hover:translate-x-0"></i>
+                </div>
+                <div class="text-[11px] text-slate-400 mt-1 leading-snug">Rules, FAQ &amp; walkthrough</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- Filter Tabs -->
-      <div class="flex items-center gap-2 border-b border-slate-800 pb-2 overflow-x-auto text-xs font-semibold">
-        <button onclick="filterTournaments('all')" class="tour-filter active px-3 py-1.5 rounded-lg bg-amber-600 text-white">All</button>
-        <button onclick="filterTournaments('ongoing')" class="tour-filter px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white">Live / Ongoing</button>
-        <button onclick="filterTournaments('published')" class="tour-filter px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white">Published</button>
-        <button onclick="filterTournaments('pending_verification')" class="tour-filter px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white">Pending Verification</button>
+      <!-- Live Search & Category Filter Section -->
+      <div id="tournamentsExplorerBar" class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/90 p-3 sm:p-4 rounded-2xl border border-slate-800 shadow-lg">
+        <!-- Live Search Box -->
+        <div class="relative flex-1">
+          <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+          <input type="text" id="tournamentSearchInput" oninput="searchTournaments(this.value)" placeholder="Search tournament by name, venue address, city, or organiser..." class="w-full bg-slate-950 border border-slate-700/80 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition">
+        </div>
+
+        <!-- Filter Pills -->
+        <div class="flex items-center gap-1.5 overflow-x-auto text-xs font-semibold scrollbar-none flex-shrink-0">
+          <button onclick="filterTournaments('all')" class="tour-filter active px-3 py-1.5 rounded-xl bg-amber-600 text-white whitespace-nowrap shadow-sm">All</button>
+          <button onclick="filterTournaments('ongoing')" class="tour-filter px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 hover:text-white whitespace-nowrap">Live Matches</button>
+          <button onclick="filterTournaments('published')" class="tour-filter px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 hover:text-white whitespace-nowrap">Open for Entry</button>
+          <button onclick="filterTournaments('pending_verification')" class="tour-filter px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 hover:text-white whitespace-nowrap">Pending Verification</button>
+        </div>
+      </div>
+
+      <!-- Tournaments Grid Header with Counter -->
+      <div class="flex items-center justify-between text-xs text-slate-400 px-1">
+        <div class="flex items-center gap-1.5 font-bold text-slate-300">
+          <i class="fa-solid fa-trophy text-amber-500"></i>
+          <span>Available Tournaments (<span id="tournamentsCountLabel">0</span>)</span>
+        </div>
+        <span class="text-[11px] text-slate-500">Click "Join / Apply" on any tournament to register</span>
       </div>
 
       <!-- Tournaments Grid -->
@@ -2654,6 +2753,273 @@
     </div>
   </div>
 
+  <!-- MODAL: How to Use CarromX Interactive User Guide (Player, Referee, Organiser, Super Admin & Rules) -->
+  <div id="appGuideModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-5 overflow-hidden">
+    <div class="bg-slate-900 border border-amber-500/40 rounded-3xl max-w-3xl w-full shadow-2xl flex flex-col max-h-[92vh] overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between border-b border-slate-800 px-5 py-4 bg-slate-950/80">
+        <div class="flex items-center gap-2.5">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-700 text-slate-950 flex items-center justify-center font-black text-lg shadow-lg shadow-amber-500/20">
+            <i class="fa-solid fa-book-open"></i>
+          </div>
+          <div>
+            <h3 class="font-black text-white text-base leading-tight">How to Use CarromX</h3>
+            <p class="text-[11px] text-slate-400">Complete, step-by-step guide for Players, Referees, and Organisers</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeAppGuideModal()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition" title="Close Guide">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Tab Switcher -->
+      <div class="flex items-center gap-1.5 px-4 sm:px-6 py-3 border-b border-slate-800 bg-slate-950/40 overflow-x-auto text-xs font-bold scrollbar-none">
+        <button onclick="switchGuideTab('player')" id="guide-tab-player" class="guide-tab-btn px-3 py-1.5 rounded-xl bg-amber-500 text-slate-950 flex items-center gap-1.5 whitespace-nowrap shadow font-black transition">
+          <i class="fa-solid fa-bullseye"></i> 👤 Player
+        </button>
+        <button onclick="switchGuideTab('umpire')" id="guide-tab-umpire" class="guide-tab-btn px-3 py-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white flex items-center gap-1.5 whitespace-nowrap transition">
+          <i class="fa-solid fa-stopwatch"></i> ⏱️ Umpire / Referee
+        </button>
+        <button onclick="switchGuideTab('organizer')" id="guide-tab-organizer" class="guide-tab-btn px-3 py-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white flex items-center gap-1.5 whitespace-nowrap transition">
+          <i class="fa-solid fa-sitemap"></i> 🏆 Organiser
+        </button>
+        <button onclick="switchGuideTab('admin')" id="guide-tab-admin" class="guide-tab-btn px-3 py-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white flex items-center gap-1.5 whitespace-nowrap transition">
+          <i class="fa-solid fa-crown"></i> 👑 Super Admin
+        </button>
+        <button onclick="switchGuideTab('rules')" id="guide-tab-rules" class="guide-tab-btn px-3 py-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white flex items-center gap-1.5 whitespace-nowrap transition">
+          <i class="fa-solid fa-scroll"></i> ⚡ Carrom Rules
+        </button>
+      </div>
+
+      <!-- Tab Contents (Scrollable) -->
+      <div class="p-5 sm:p-6 overflow-y-auto space-y-6 flex-1 text-slate-200 text-xs">
+        
+        <!-- TAB 1: PLAYER GUIDE -->
+        <div id="guide-content-player" class="guide-panel space-y-4">
+          <div class="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-2">
+            <i class="fa-solid fa-circle-info text-amber-400 text-base flex-shrink-0"></i>
+            <span>Signed up as a <strong>Player</strong>? Here is how to find, enter, and track your carrom tournaments in 4 easy steps:</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+            <div class="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-2">
+              <div class="w-7 h-7 rounded-lg bg-amber-500 text-slate-950 font-black flex items-center justify-center text-xs">1</div>
+              <h4 class="font-bold text-white text-sm">Browse &amp; Pick a Tournament</h4>
+              <p class="text-slate-400 leading-relaxed text-[11px]">
+                Explore upcoming championships on the home screen. Check the venue, board count, rules, and entry fee.
+              </p>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-2">
+              <div class="w-7 h-7 rounded-lg bg-emerald-500 text-slate-950 font-black flex items-center justify-center text-xs">2</div>
+              <h4 class="font-bold text-white text-sm">1-Click Apply &amp; Pay via UPI</h4>
+              <p class="text-slate-400 leading-relaxed text-[11px]">
+                Click <strong>"Join / Apply"</strong> on the tournament card. Pay using GPay/PhonePe to the organiser's UPI ID, enter your UTR/Reference number or call the host directly.
+              </p>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-2">
+              <div class="w-7 h-7 rounded-lg bg-blue-500 text-slate-950 font-black flex items-center justify-center text-xs">3</div>
+              <h4 class="font-bold text-white text-sm">Pre-Match Push Alerts</h4>
+              <p class="text-slate-400 leading-relaxed text-[11px]">
+                When your match is scheduled, CarromX sends automated <strong>10-minute pre-match alerts</strong> so you know exactly which physical board to report to.
+              </p>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-2">
+              <div class="w-7 h-7 rounded-lg bg-purple-500 text-slate-950 font-black flex items-center justify-center text-xs">4</div>
+              <h4 class="font-bold text-white text-sm">Track Scores &amp; Standings</h4>
+              <p class="text-slate-400 leading-relaxed text-[11px]">
+                Watch your match progression courtside. Points, Queen covers, and standings tables update in real time with sub-second synchronization.
+              </p>
+            </div>
+          </div>
+
+          <div class="pt-2 flex items-center gap-2">
+            <button onclick="closeAppGuideModal(); scrollToTournaments();" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition">
+              Find Tournaments to Join Now &rarr;
+            </button>
+          </div>
+        </div>
+
+        <!-- TAB 2: UMPIRE GUIDE -->
+        <div id="guide-content-umpire" class="guide-panel hidden space-y-4">
+          <div class="p-3.5 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-blue-300 text-xs flex items-center gap-2">
+            <i class="fa-solid fa-stopwatch text-blue-400 text-base flex-shrink-0"></i>
+            <span>Courtside Referee &amp; Umpire scoring is secured by <strong>4-digit Board PINs</strong>. Follow these steps:</span>
+          </div>
+
+          <div class="space-y-3">
+            <div class="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 flex items-start gap-3">
+              <div class="w-7 h-7 rounded-lg bg-blue-500 text-white font-black flex items-center justify-center text-xs flex-shrink-0 mt-0.5">1</div>
+              <div>
+                <h4 class="font-bold text-white text-sm">Open Score Sheet for Your Match</h4>
+                <p class="text-slate-400 text-[11px] mt-0.5">Click "Score Sheet" from the navigation bar or select "Log Score" on the fixture card.</p>
+              </div>
+            </div>
+
+            <div class="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 flex items-start gap-3">
+              <div class="w-7 h-7 rounded-lg bg-blue-500 text-white font-black flex items-center justify-center text-xs flex-shrink-0 mt-0.5">2</div>
+              <div>
+                <h4 class="font-bold text-white text-sm">Enter the 4-Digit Board Security PIN</h4>
+                <p class="text-slate-400 text-[11px] mt-0.5">Each physical carrom board is locked until the assigned umpire enters its 4-digit PIN. This binds your umpire ID and prevents unauthorized score tampering.</p>
+              </div>
+            </div>
+
+            <div class="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 flex items-start gap-3">
+              <div class="w-7 h-7 rounded-lg bg-blue-500 text-white font-black flex items-center justify-center text-xs flex-shrink-0 mt-0.5">3</div>
+              <div>
+                <h4 class="font-bold text-white text-sm">Log Coins, Queen &amp; Penalties</h4>
+                <p class="text-slate-400 text-[11px] mt-0.5">Tap White Coins (+1), Black Coins (+1), Queen (+3 with cover), or dues (-1). The system automatically enforces the 25-minute set timer and 8-board set cap.</p>
+              </div>
+            </div>
+
+            <div class="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 flex items-start gap-3">
+              <div class="w-7 h-7 rounded-lg bg-rose-500 text-white font-black flex items-center justify-center text-xs flex-shrink-0 mt-0.5">4</div>
+              <div>
+                <h4 class="font-bold text-white text-sm">Foul or Protest? Raise Match Dispute</h4>
+                <p class="text-slate-400 text-[11px] mt-0.5">If a foul or rule violation occurs, tap "Raise Dispute". The match is instantly paused, and the Super Admin / Chief Referee is alerted over WebSockets.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: ORGANISER GUIDE -->
+        <div id="guide-content-organizer" class="guide-panel hidden space-y-4">
+          <div class="p-3.5 rounded-2xl bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs flex items-center gap-2">
+            <i class="fa-solid fa-sitemap text-purple-400 text-base flex-shrink-0"></i>
+            <span>Want to host carrom championships? Organiser permissions are managed exclusively by the Administrator.</span>
+          </div>
+
+          <div class="space-y-3">
+            <div class="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 flex items-start gap-3">
+              <div class="w-7 h-7 rounded-lg bg-purple-500 text-white font-black flex items-center justify-center text-xs flex-shrink-0 mt-0.5">1</div>
+              <div>
+                <h4 class="font-bold text-white text-sm">Create &amp; Publish Championship</h4>
+                <p class="text-slate-400 text-[11px] mt-0.5">Click "Host Tournament". Enter title, venue, board count, and your UPI ID. Physical boards with individual PINs are provisioned automatically.</p>
+              </div>
+            </div>
+
+            <div class="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 flex items-start gap-3">
+              <div class="w-7 h-7 rounded-lg bg-purple-500 text-white font-black flex items-center justify-center text-xs flex-shrink-0 mt-0.5">2</div>
+              <div>
+                <h4 class="font-bold text-white text-sm">Approve Registrations (1-Click UPI Verify)</h4>
+                <p class="text-slate-400 text-[11px] mt-0.5">View player payments under "Pending Player Applications". Review payment screenshot / UTR and approve players to seed them into the draw.</p>
+              </div>
+            </div>
+
+            <div class="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 flex items-start gap-3">
+              <div class="w-7 h-7 rounded-lg bg-purple-500 text-white font-black flex items-center justify-center text-xs flex-shrink-0 mt-0.5">3</div>
+              <div>
+                <h4 class="font-bold text-white text-sm">Fisher-Yates Random Shuffle &amp; Brackets</h4>
+                <p class="text-slate-400 text-[11px] mt-0.5">Click "Random Shuffle" to automatically generate fair, randomized pairings across boards without manual spreadsheet work.</p>
+              </div>
+            </div>
+
+            <div class="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 flex items-start gap-3">
+              <div class="w-7 h-7 rounded-lg bg-purple-500 text-white font-black flex items-center justify-center text-xs flex-shrink-0 mt-0.5">4</div>
+              <div>
+                <h4 class="font-bold text-white text-sm">Advance Knockout Rounds</h4>
+                <p class="text-slate-400 text-[11px] mt-0.5">When match sets conclude, click "Next Round" to automatically advance winners into Quarter-Finals, Semi-Finals, and the Grand Championship Final.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
+            <span>To request Organiser role for your account, contact: <strong class="text-white">carrromx@gmail.com</strong></span>
+            <a href="mailto:carrromx@gmail.com?subject=CarromX%20Organiser%20Role%20Request" class="px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold transition">Email Admin</a>
+          </div>
+        </div>
+
+        <!-- TAB 4: SUPER ADMIN GUIDE -->
+        <div id="guide-content-admin" class="guide-panel hidden space-y-4">
+          <div class="p-3.5 rounded-2xl bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs flex items-center gap-2">
+            <i class="fa-solid fa-shield-halved text-purple-400 text-base flex-shrink-0"></i>
+            <span>Exclusive master capabilities for the <strong>Super Administrator</strong> (Email: <code>carrromx@gmail.com</code> | Phone: <code>+919600436921</code>):</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div class="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-1">
+              <div class="font-bold text-white text-xs flex items-center gap-1.5"><i class="fa-solid fa-users text-purple-400"></i> Role Control</div>
+              <p class="text-slate-400 text-[11px] leading-relaxed">Promote or reassign any user between Player, Organiser, and Super Admin in the User Directory.</p>
+            </div>
+
+            <div class="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-1">
+              <div class="font-bold text-white text-xs flex items-center gap-1.5"><i class="fa-solid fa-certificate text-emerald-400"></i> Tournament Verification</div>
+              <p class="text-slate-400 text-[11px] leading-relaxed">Review incoming tournaments and award the official verified badge before public publishing.</p>
+            </div>
+
+            <div class="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-1">
+              <div class="font-bold text-white text-xs flex items-center gap-1.5"><i class="fa-solid fa-triangle-exclamation text-amber-400"></i> Dispute Mediation</div>
+              <p class="text-slate-400 text-[11px] leading-relaxed">Inspect courtside video/protests, log official resolution notes, award points, and resume live fixtures.</p>
+            </div>
+
+            <div class="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-1">
+              <div class="font-bold text-white text-xs flex items-center gap-1.5"><i class="fa-solid fa-trash-can text-rose-400"></i> Tournament Deletion</div>
+              <p class="text-slate-400 text-[11px] leading-relaxed">Permanently delete obsolete tournaments with complete database cascade cleanup across all child records.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 5: AICF RULES -->
+        <div id="guide-content-rules" class="guide-panel hidden space-y-4">
+          <div class="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
+            <i class="fa-solid fa-scale-balanced text-emerald-400 text-base flex-shrink-0"></i>
+            <span>CarromX adheres strictly to <strong>All India Carrom Federation (AICF)</strong> standards:</span>
+          </div>
+
+          <div class="space-y-2.5 text-[11px]">
+            <div class="p-3 rounded-xl bg-slate-950/70 border border-slate-800 flex items-center justify-between">
+              <span class="font-bold text-white">White &amp; Black Carrom Men (Coins)</span>
+              <span class="font-extrabold text-amber-400">1 Point per coin pocketed</span>
+            </div>
+
+            <div class="p-3 rounded-xl bg-slate-950/70 border border-slate-800 flex items-center justify-between">
+              <div>
+                <span class="font-bold text-rose-400 block">The Queen (Red Coin)</span>
+                <span class="text-slate-400 text-[10px]">Must be covered by pocketing another coin on the immediate stroke</span>
+              </div>
+              <span class="font-extrabold text-rose-400">3 Points</span>
+            </div>
+
+            <div class="p-3 rounded-xl bg-slate-950/70 border border-slate-800 flex items-center justify-between">
+              <div>
+                <span class="font-bold text-white block">Queen Point Cap Rule (22+ Pts)</span>
+                <span class="text-slate-400 text-[10px]">If a player has reached 22 points or more, Queen points are not counted</span>
+              </div>
+              <span class="text-slate-400 font-mono">AICF Article 24</span>
+            </div>
+
+            <div class="p-3 rounded-xl bg-slate-950/70 border border-slate-800 flex items-center justify-between">
+              <div>
+                <span class="font-bold text-white block">Set Victory Limit</span>
+                <span class="text-slate-400 text-[10px]">First player to 25 points, or leader after 8 boards or 25-minute set timer</span>
+              </div>
+              <span class="font-extrabold text-amber-400">25 Pts / 25 Mins</span>
+            </div>
+
+            <div class="p-3 rounded-xl bg-slate-950/70 border border-slate-800 flex items-center justify-between">
+              <span class="font-bold text-white">Match Victory</span>
+              <span class="font-extrabold text-emerald-400">Best of 3 Sets</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="border-t border-slate-800 px-5 py-3.5 bg-slate-950 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+        <div class="text-[11px] text-slate-400 flex items-center gap-1.5">
+          <i class="fa-solid fa-headset text-amber-400"></i> Need instant support? Contact Admin at <strong class="text-white">carrromx@gmail.com</strong>
+        </div>
+        <button type="button" onclick="closeAppGuideModal()" class="w-full sm:w-auto px-5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-bold text-xs shadow transition">
+          Got It, Thanks!
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Desktop / Web Footer with Legal & Privacy Links -->
   <footer class="mt-auto border-t border-slate-800/80 bg-slate-950/80 py-6 px-4 text-center text-xs text-slate-400">
     <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -2662,6 +3028,7 @@
         <span>— Local Carrom Tournament Platform</span>
       </div>
       <div class="flex items-center gap-4 text-xs">
+        <button onclick="openAppGuideModal('player')" class="hover:text-amber-400 transition underline">How It Works Guide</button>
         <a href="/privacy.html" target="_blank" class="hover:text-amber-400 transition underline">Privacy Policy</a>
         <span>&copy; 2026 CarromX</span>
       </div>
@@ -2674,23 +3041,29 @@
       <i class="fa-solid fa-trophy text-sm text-amber-400"></i>
       <span>Tourneys</span>
     </button>
+    <button onclick="openAppGuideModal('player')" id="mNavGuide" class="flex flex-col items-center gap-1 text-[11px] text-amber-300 hover:text-amber-200 py-1 flex-1 font-bold">
+      <i class="fa-solid fa-book-open text-sm text-amber-400"></i>
+      <span>Guide</span>
+    </button>
     <button onclick="openScoreSheetNav()" id="mNavScoresheet" class="flex flex-col items-center gap-1 text-[11px] text-slate-400 hover:text-emerald-400 py-1 flex-1">
       <i class="fa-solid fa-file-invoice text-sm text-emerald-400"></i>
-      <span>Score Sheet</span>
+      <span>Scores</span>
     </button>
     <button onclick="handleMobileContextNav()" id="mNavContext" class="flex flex-col items-center gap-1 text-[11px] text-slate-400 hover:text-blue-400 py-1 flex-1">
       <i id="mNavContextIcon" class="fa-solid fa-shuffle text-sm text-blue-400"></i>
       <span id="mNavContextText">Fixtures</span>
-    </button>
-    <button onclick="installPWA()" id="mNavInstall" class="flex flex-col items-center gap-1 text-[11px] text-slate-400 hover:text-teal-400 py-1 flex-1">
-      <i class="fa-solid fa-mobile-screen-button text-sm text-teal-400"></i>
-      <span>Install</span>
     </button>
     <button onclick="openAuthModal()" id="mNavProfile" class="flex flex-col items-center gap-1 text-[11px] text-slate-400 hover:text-purple-400 py-1 flex-1">
       <i id="mNavProfileIcon" class="fa-solid fa-user text-sm text-purple-400"></i>
       <span id="mNavProfileText">Account</span>
     </button>
   </nav>
+
+  <!-- Floating Quick Help / Walkthrough Button -->
+  <button onclick="openAppGuideModal('player')" class="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-40 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white p-3 sm:px-4 sm:py-2.5 rounded-full shadow-2xl flex items-center gap-2 border border-amber-400/50 hover:scale-105 active:scale-95 transition-all group" title="How CarromX Works & Quick User Guide">
+    <i class="fa-solid fa-circle-question text-lg sm:text-base text-amber-200"></i>
+    <span class="hidden sm:inline text-xs font-black tracking-wide uppercase">How It Works</span>
+  </button>
 
   <!-- Floating Spectator Reactions Container -->
   <div id="floatingReactionsContainer"></div>

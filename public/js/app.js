@@ -564,15 +564,75 @@ function filterTournaments(status) {
   }
 }
 
+function searchTournaments(q) {
+  const query = (q || '').trim().toLowerCase();
+  if (!query) {
+    renderTournamentsGrid(allTournaments);
+    return;
+  }
+  const filtered = allTournaments.filter(t => {
+    return (
+      (t.title && t.title.toLowerCase().includes(query)) ||
+      (t.venue_address && t.venue_address.toLowerCase().includes(query)) ||
+      (t.organizer_name && t.organizer_name.toLowerCase().includes(query)) ||
+      (t.format && t.format.toLowerCase().includes(query))
+    );
+  });
+  renderTournamentsGrid(filtered);
+}
+
+function scrollToTournaments() {
+  document.getElementById('tournamentsExplorerBar')?.scrollIntoView({ behavior: 'smooth' });
+}
+
+function openAppGuideModal(defaultTab = 'player') {
+  const modal = document.getElementById('appGuideModal');
+  if (modal) modal.classList.remove('hidden');
+  switchGuideTab(defaultTab);
+}
+
+function closeAppGuideModal() {
+  const modal = document.getElementById('appGuideModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function switchGuideTab(tabName) {
+  const tabs = ['player', 'umpire', 'organizer', 'admin', 'rules'];
+  tabs.forEach(t => {
+    const btn = document.getElementById(`guide-tab-${t}`);
+    const panel = document.getElementById(`guide-content-${t}`);
+    if (btn) {
+      if (t === tabName) {
+        btn.className = 'guide-tab-btn px-3 py-1.5 rounded-xl bg-amber-500 text-slate-950 flex items-center gap-1.5 whitespace-nowrap shadow font-black transition';
+      } else {
+        btn.className = 'guide-tab-btn px-3 py-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white flex items-center gap-1.5 whitespace-nowrap transition';
+      }
+    }
+    if (panel) {
+      if (t === tabName) panel.classList.remove('hidden');
+      else panel.classList.add('hidden');
+    }
+  });
+}
+
 function renderTournamentsGrid(tournaments) {
   const container = document.getElementById('tournamentsGrid');
+  const countLabel = document.getElementById('tournamentsCountLabel');
+  if (countLabel) countLabel.innerText = tournaments ? tournaments.length : 0;
+
   if (!container) return;
 
-  if (tournaments.length === 0) {
+  if (!tournaments || tournaments.length === 0) {
     container.innerHTML = `
-      <div class="col-span-full py-12 text-center text-slate-500">
-        <i class="fa-solid fa-trophy text-4xl mb-3 text-slate-600"></i>
-        <p class="text-sm">No tournaments found in this category.</p>
+      <div class="col-span-full py-16 text-center text-slate-500 bg-slate-900/40 rounded-3xl border border-slate-800/80 p-8 space-y-3">
+        <div class="w-16 h-16 rounded-2xl bg-slate-800/80 text-amber-500/70 flex items-center justify-center text-2xl mx-auto shadow-inner">
+          <i class="fa-solid fa-trophy"></i>
+        </div>
+        <h4 class="text-base font-bold text-slate-300">No tournaments matching your search</h4>
+        <p class="text-xs text-slate-500 max-w-sm mx-auto">Try clearing search filters or create a new tournament if you have Organiser access.</p>
+        <button onclick="searchTournaments(''); document.getElementById('tournamentSearchInput').value='';" class="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold">
+          Reset Filter
+        </button>
       </div>
     `;
     return;
@@ -581,57 +641,80 @@ function renderTournamentsGrid(tournaments) {
   container.innerHTML = tournaments.map(t => {
     const isVerified = Boolean(t.verified_by_helpdesk);
     const statusColor = t.status === 'ongoing' ? 'emerald' : t.status === 'published' ? 'blue' : 'amber';
+    const cleanFee = parseFloat(t.entry_fee) > 0 ? `₹${t.entry_fee}` : 'Free Entry';
 
     return `
-      <div class="rounded-2xl bg-slate-900 border border-slate-800 hover:border-amber-800/60 overflow-hidden shadow-xl transition-all duration-200 flex flex-col group">
+      <div class="rounded-3xl bg-slate-900/95 border border-slate-800 hover:border-amber-500/50 overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-amber-500/5 transition-all duration-300 flex flex-col group">
+        <!-- Banner Image & Floating Status -->
         <div class="relative h-44 overflow-hidden">
-          <img src="${t.banner_url || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80'}" alt="${t.title}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
-          <div class="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent"></div>
+          <img src="${t.banner_url || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80'}" alt="${escapeHtml(t.title)}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+          <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent"></div>
           
           <div class="absolute top-3 left-3 flex flex-wrap gap-1.5">
-            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-${statusColor}-500/20 text-${statusColor}-400 border border-${statusColor}-500/40 backdrop-blur">
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-${statusColor}-500/20 text-${statusColor}-400 border border-${statusColor}-500/40 backdrop-blur shadow-sm">
               ${t.status.replace('_', ' ')}
             </span>
             ${isVerified ? `
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 backdrop-blur flex items-center gap-1">
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 backdrop-blur flex items-center gap-1 shadow-sm">
                 <i class="fa-solid fa-certificate text-amber-400"></i> Verified
               </span>
             ` : `
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800/80 text-slate-400 border border-slate-700 backdrop-blur">
-                <i class="fa-solid fa-clock"></i> Pending Review
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-800/80 text-slate-400 border border-slate-700 backdrop-blur">
+                <i class="fa-solid fa-clock"></i> In Review
               </span>
             `}
           </div>
 
-          <div class="absolute bottom-3 left-3 right-3">
-            <div class="text-[11px] font-bold uppercase tracking-wider text-amber-400 mb-0.5">${t.format.replace('_', ' ')} &bull; ${t.total_boards} Boards</div>
-            <h3 class="text-base font-bold text-white line-clamp-1 leading-snug">${t.title}</h3>
+          <div class="absolute bottom-3 left-3.5 right-3.5">
+            <div class="text-[10px] font-extrabold uppercase tracking-wider text-amber-400 mb-0.5 flex items-center gap-2">
+              <span><i class="fa-solid fa-chess-board mr-1"></i>${t.format.replace('_', ' ')}</span>
+              <span>&bull;</span>
+              <span>${t.total_boards} Boards</span>
+            </div>
+            <h3 class="text-base font-extrabold text-white line-clamp-1 leading-snug group-hover:text-amber-300 transition">${escapeHtml(t.title)}</h3>
           </div>
         </div>
 
-        <div class="p-4 flex-1 flex flex-col justify-between space-y-4">
-          <div class="space-y-2 text-xs text-slate-300">
+        <!-- Card Body -->
+        <div class="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-4">
+          <div class="space-y-2.5 text-xs text-slate-300">
             <div class="flex items-start gap-2 text-slate-400">
-              <i class="fa-solid fa-location-dot mt-0.5 text-amber-500"></i>
-              <span class="line-clamp-2">${t.venue_address}</span>
+              <i class="fa-solid fa-location-dot mt-0.5 text-amber-500 flex-shrink-0"></i>
+              <span class="line-clamp-2 leading-relaxed">${escapeHtml(t.venue_address)}</span>
             </div>
-            <div class="flex items-center justify-between text-[11px] pt-1 border-t border-slate-800 text-slate-400">
-              <span>Rules: ${t.total_sets} Sets / ${t.max_points_per_set} Pts</span>
-              <span>Approved: <strong class="text-emerald-400">${t.approved_participant_count || 0}</strong></span>
+
+            <!-- Host Contact Pill -->
+            <div class="flex items-center justify-between text-[11px] pt-1.5 border-t border-slate-800/80 text-slate-400">
+              <div class="flex items-center gap-1 truncate max-w-[180px]">
+                <i class="fa-solid fa-user-tie text-blue-400"></i>
+                <span class="truncate">Host: <strong class="text-slate-300 font-semibold">${escapeHtml(t.organizer_name || 'Organiser')}</strong></span>
+              </div>
+              <div>
+                Approved: <strong class="text-emerald-400 font-bold">${t.approved_participant_count || 0}</strong>
+              </div>
+            </div>
+
+            <!-- Rules Summary -->
+            <div class="flex items-center justify-between text-[11px] text-slate-400">
+              <span><i class="fa-solid fa-clock-rotate-left mr-1 text-amber-400"></i>${t.total_sets} Sets / ${t.max_points_per_set} Pts Cap</span>
+              <span class="text-amber-300/80 font-mono text-[10px]">ICF Standard</span>
             </div>
           </div>
 
-          <div class="pt-2 border-t border-slate-800 flex items-center justify-between gap-2">
+          <!-- Card Action Footer -->
+          <div class="pt-3 border-t border-slate-800 flex items-center justify-between gap-2">
             <div>
-              <span class="text-[10px] text-slate-400 block">Entry Fee</span>
-              <span class="text-base font-extrabold text-amber-400">₹${t.entry_fee}</span>
+              <span class="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Entry Fee</span>
+              <span class="text-base font-black text-amber-400">${cleanFee}</span>
             </div>
-            <div class="flex items-center gap-1.5">
-              <a href="/tournament/${t.tournament_id}" target="_blank" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-xs" title="Open SEO Landing Page">
-                <i class="fa-solid fa-arrow-up-right-from-square"></i>
-              </a>
-              <button onclick="viewTournamentDetail('${t.tournament_id}')" class="px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow transition">
-                View Fixtures
+            
+            <div class="flex items-center gap-2">
+              <button onclick="viewTournamentDetail('${t.tournament_id}')" class="px-3 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-white font-bold text-xs border border-slate-700 transition flex items-center gap-1.5 shadow-sm" title="View match pairings, standings and board rules">
+                <i class="fa-solid fa-eye text-amber-400"></i> Details
+              </button>
+
+              <button onclick="openRegisterModal('${t.tournament_id}', '${t.entry_fee}', '${escapeHtml(t.organizer_name || 'Organiser')}', '${escapeHtml(t.organizer_phone || '')}')" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-black text-xs shadow-lg transition flex items-center gap-1.5 active:scale-95" title="Register / Apply to play in this tournament">
+                <i class="fa-solid fa-ticket text-emerald-200"></i> Join / Apply
               </button>
             </div>
           </div>
